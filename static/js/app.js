@@ -48,6 +48,7 @@ const state = {
     stats: null,
     leaderboard: [],
     cooldownBypass: false,
+    wsEndpointIndex: 0,
 };
 
 function normalizeNickname(name) {
@@ -205,6 +206,22 @@ function setDrawerOpen(isOpen) {
     drawerBackdrop.classList.remove('show');
     statsDrawer.setAttribute('aria-hidden', 'true');
     drawerBackdrop.setAttribute('aria-hidden', 'true');
+}
+
+function getWebSocketCandidates() {
+    const candidates = [];
+    if (location.origin && location.origin.startsWith('http')) {
+        candidates.push(`${location.origin.replace(/^http/, 'ws')}/ws`);
+    }
+    if (location.hostname) {
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        candidates.push(`${proto}//${location.hostname}:8080/ws`);
+    } else {
+        candidates.push('ws://localhost:8080/ws');
+    }
+
+    // De-duplicate while preserving order.
+    return [...new Set(candidates)];
 }
 
 function queueDraw() {
@@ -446,17 +463,25 @@ function handleServerMessage(data) {
 }
 
 function connectWebSocket() {
-    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Use the current origin host/port in production (Render, etc.).
-    // Fallback to localhost:8080 only when opened from file://.
-    const host = location.host && location.host.length > 0 ? location.host : 'localhost:8080';
-    const wsUrl = `${proto}//${host}/ws`;
-    setConnState('warn', 'Connecting...');
+    const wsCandidates = getWebSocketCandidates();
+    if (state.wsEndpointIndex >= wsCandidates.length) {
+        state.wsEndpointIndex = 0;
+    }
+    const wsUrl = wsCandidates[state.wsEndpointIndex];
+    setConnState('warn', `Connecting... (${state.wsEndpointIndex + 1}/${wsCandidates.length})`);
     state.connected = false;
 
     const socket = new WebSocket(wsUrl);
+    const connectTimeout = setTimeout(() => {
+        if (socket.readyState === WebSocket.CONNECTING) {
+            setConnState('err', 'Connect timeout (retrying...)');
+            socket.close();
+        }
+    }, 8000);
     socket.onopen = () => {
+        clearTimeout(connectTimeout);
         state.connected = true;
+        connectWebSocket.attempts = 0;
         setConnState('ok', 'Connected');
         sendWS({
             type: 'auth',
@@ -477,9 +502,23 @@ function connectWebSocket() {
         }
     };
 
+    socket.onerror = () => {
+        setConnState('err', 'WebSocket error (retrying...)');
+        // Some browsers don't immediately trigger close after error.
+        try {
+            socket.close();
+        } catch {
+            // no-op
+        }
+    };
+
     socket.onclose = () => {
+        clearTimeout(connectTimeout);
         state.connected = false;
         setConnState('err', 'Disconnected (reconnecting...)');
+        if (wsCandidates.length > 1) {
+            state.wsEndpointIndex = (state.wsEndpointIndex + 1) % wsCandidates.length;
+        }
         if (state.pendingReconnectTimer) clearTimeout(state.pendingReconnectTimer);
         const attempts = (connectWebSocket.attempts = (connectWebSocket.attempts || 0) + 1);
         const delay = Math.min(7000, 500 + attempts * 300);

@@ -14,6 +14,10 @@ type AppConfig struct {
 	AntiSpamWindow        time.Duration
 	MaxMessagesPerWindow  int
 	MaxChunkRequestsPerSec int
+	SyncEnabled           bool
+	SyncInterval          time.Duration
+	SyncMinInterval       time.Duration
+	SyncMaxInterval       time.Duration
 	CooldownBypassUIDs    map[string]struct{}
 	AdminAPIKey           string
 }
@@ -22,10 +26,14 @@ func loadAppConfig() AppConfig {
 	cfg := AppConfig{
 		GridSize:              readIntEnv("GRID_SIZE", 250),
 		ChunkSize:             readIntEnv("CHUNK_SIZE", 25),
-		CooldownDuration:      readDurationEnv("COOLDOWN_DURATION", 30*time.Minute),
+		CooldownDuration:      readDurationEnv("COOLDOWN_DURATION", 5*time.Minute),
 		AntiSpamWindow:        readDurationEnv("ANTI_SPAM_WINDOW", 2*time.Second),
 		MaxMessagesPerWindow:  readIntEnv("MAX_MESSAGES_PER_WINDOW", 50),
 		MaxChunkRequestsPerSec: readIntEnv("MAX_CHUNK_REQUESTS_PER_SEC", 4),
+		SyncEnabled:           readBoolEnv("SYNC_ENABLED", true),
+		SyncInterval:          readDurationEnv("SYNC_INTERVAL", 2*time.Second),
+		SyncMinInterval:       readDurationEnv("SYNC_MIN_INTERVAL", 500*time.Millisecond),
+		SyncMaxInterval:       readDurationEnv("SYNC_MAX_INTERVAL", 10*time.Second),
 		AdminAPIKey:           strings.TrimSpace(os.Getenv("ADMIN_API_KEY")),
 		CooldownBypassUIDs: map[string]struct{}{
 			"HIA7LC9I3oaTlcuXecOgXESyOx92": {},
@@ -60,6 +68,24 @@ func loadAppConfig() AppConfig {
 	if cfg.AntiSpamWindow <= 0 {
 		cfg.AntiSpamWindow = 2 * time.Second
 	}
+	if cfg.SyncInterval <= 0 {
+		cfg.SyncInterval = 2 * time.Second
+	}
+	if cfg.SyncMinInterval <= 0 {
+		cfg.SyncMinInterval = 500 * time.Millisecond
+	}
+	if cfg.SyncMaxInterval <= 0 {
+		cfg.SyncMaxInterval = 10 * time.Second
+	}
+	if cfg.SyncMinInterval > cfg.SyncMaxInterval {
+		cfg.SyncMinInterval, cfg.SyncMaxInterval = cfg.SyncMaxInterval, cfg.SyncMinInterval
+	}
+	if cfg.SyncInterval < cfg.SyncMinInterval {
+		cfg.SyncInterval = cfg.SyncMinInterval
+	}
+	if cfg.SyncInterval > cfg.SyncMaxInterval {
+		cfg.SyncInterval = cfg.SyncMaxInterval
+	}
 
 	return cfg
 }
@@ -86,5 +112,20 @@ func readDurationEnv(name string, fallback time.Duration) time.Duration {
 		return fallback
 	}
 	return v
+}
+
+func readBoolEnv(name string, fallback bool) bool {
+	raw := strings.TrimSpace(strings.ToLower(os.Getenv(name)))
+	if raw == "" {
+		return fallback
+	}
+	switch raw {
+	case "1", "true", "yes", "on":
+		return true
+	case "0", "false", "no", "off":
+		return false
+	default:
+		return fallback
+	}
 }
 

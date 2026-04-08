@@ -217,6 +217,15 @@ func main() {
 	http.HandleFunc("/ws", handleConnections)
 	http.HandleFunc("/admin/cooldown", handleAdminCooldown)
 	go handleMessages()
+	if appConfig.SyncEnabled {
+		go syncCanvasStateLoop()
+		log.Printf(
+			"Canvas sync enabled (base: %s, min: %s, max: %s)",
+			appConfig.SyncInterval,
+			appConfig.SyncMinInterval,
+			appConfig.SyncMaxInterval,
+		)
+	}
 
 	// 3. Serve Frontend Files from embedded assets (deploy-safe)
 	assetsFS, err := fs.Sub(embeddedAssets, ".")
@@ -236,6 +245,83 @@ func main() {
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func syncCanvasStateLoop() {
+	currentInterval := appConfig.SyncInterval
+	for {
+		time.Sleep(currentInterval)
+		changedCount, err := syncCanvasStateOnce()
+		if err != nil {
+			// Back off on read errors.
+			currentInterval *= 2
+			if currentInterval > appConfig.SyncMaxInterval {
+				currentInterval = appConfig.SyncMaxInterval
+			}
+			continue
+		}
+
+		if changedCount > 0 {
+			// Speed up briefly while there is activity.
+			currentInterval = appConfig.SyncMinInterval
+			continue
+		}
+
+		// No changes -> gradually back off.
+		next := time.Duration(float64(currentInterval) * 1.5)
+		if next > appConfig.SyncMaxInterval {
+			next = appConfig.SyncMaxInterval
+		}
+		if next < appConfig.SyncMinInterval {
+			next = appConfig.SyncMinInterval
+		}
+		currentInterval = next
+	}
+}
+
+func syncCanvasStateOnce() (int, error) {
+	var dbPixels map[string]PixelMessage
+	if err := dbClient.NewRef("pixels").Get(ctx, &dbPixels); err != nil {
+		log.Println("sync: failed to read pixels:", err)
+		return 0, err
+	}
+	if dbPixels == nil {
+		dbPixels = make(map[string]PixelMessage)
+	}
+
+	changed := make([]PixelMessage, 0, 32)
+	stateMutex.Lock()
+	for key, px := range dbPixels {
+		prev, ok := canvasState[key]
+		if !ok || prev.Color != px.Color || prev.X != px.X || prev.Y != px.Y {
+			canvasState[key] = px
+			changed = append(changed, px)
+		}
+	}
+	stateMutex.Unlock()
+
+	if len(changed) == 0 {
+		return 0, nil
+	}
+
+	clientsMutex.Lock()
+	defer clientsMutex.Unlock()
+	for _, px := range changed {
+		msg := ServerMessage{
+			Type:     "pixel_update",
+			Pixel:    &px,
+			UserID:   "system_sync",
+			Nickname: "Sync",
+			NowMs:    time.Now().UnixMilli(),
+		}
+		for conn := range clients {
+			if err := conn.WriteJSON(msg); err != nil {
+				conn.Close()
+				delete(clients, conn)
+			}
+		}
+	}
+	return len(changed), nil
 }
 
 func loadInitialState() {
