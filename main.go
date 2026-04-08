@@ -157,11 +157,32 @@ func loadDotEnv() {
 	}
 }
 
+func firebaseCredentialOption() (option.ClientOption, error) {
+	// Prefer env JSON for cloud deploys (Render/Railway/etc).
+	if rawJSON := strings.TrimSpace(os.Getenv("FIREBASE_SERVICE_ACCOUNT_JSON")); rawJSON != "" {
+		return option.WithCredentialsJSON([]byte(rawJSON)), nil
+	}
+
+	// Local dev fallback.
+	const credentialsPath = "serviceAccountKey.json"
+	if _, err := os.Stat(credentialsPath); err == nil {
+		return option.WithCredentialsFile(credentialsPath), nil
+	}
+
+	return nil, fmt.Errorf(
+		"missing Firebase credentials: set FIREBASE_SERVICE_ACCOUNT_JSON or provide %s",
+		credentialsPath,
+	)
+}
+
 func main() {
 	loadDotEnv()
 	appConfig = loadAppConfig()
 
-	opt := option.WithCredentialsFile("serviceAccountKey.json")
+	opt, err := firebaseCredentialOption()
+	if err != nil {
+		log.Fatal(err)
+	}
 	
 	dbURL := strings.TrimSpace(os.Getenv("FIREBASE_DATABASE_URL"))
 	if dbURL == "" || strings.Contains(dbURL, "YOUR_PROJECT") {
