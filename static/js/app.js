@@ -447,8 +447,10 @@ function handleServerMessage(data) {
 
 function connectWebSocket() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const hostname = location.hostname && location.hostname.length > 0 ? location.hostname : 'localhost';
-    const wsUrl = `${proto}//${hostname}:8080/ws`;
+    // Use the current origin host/port in production (Render, etc.).
+    // Fallback to localhost:8080 only when opened from file://.
+    const host = location.host && location.host.length > 0 ? location.host : 'localhost:8080';
+    const wsUrl = `${proto}//${host}/ws`;
     setConnState('warn', 'Connecting...');
     state.connected = false;
 
