@@ -40,53 +40,53 @@ type PixelMessage struct {
 }
 
 type ClientMessage struct {
-	Type          string           `json:"type"`
-	UserID        string           `json:"userId,omitempty"`
-	Nickname      string           `json:"nickname,omitempty"`
-	Pixel         *PixelMessage    `json:"pixel,omitempty"`
-	Chunks        []ChunkCoord     `json:"chunks,omitempty"`
-	Viewport      *ViewportPayload `json:"viewport,omitempty"`
-	ClientVersion string           `json:"clientVersion,omitempty"`
-	IdentityToken string           `json:"identityToken,omitempty"`
-	FirebaseIDToken string         `json:"firebaseIdToken,omitempty"`
+	Type            string           `json:"type"`
+	UserID          string           `json:"userId,omitempty"`
+	Nickname        string           `json:"nickname,omitempty"`
+	Pixel           *PixelMessage    `json:"pixel,omitempty"`
+	Chunks          []ChunkCoord     `json:"chunks,omitempty"`
+	Viewport        *ViewportPayload `json:"viewport,omitempty"`
+	ClientVersion   string           `json:"clientVersion,omitempty"`
+	IdentityToken   string           `json:"identityToken,omitempty"`
+	FirebaseIDToken string           `json:"firebaseIdToken,omitempty"`
 }
 
 type ServerMessage struct {
-	Type         string         `json:"type"`
-	Pixel        *PixelMessage  `json:"pixel,omitempty"`
-	Pixels       []PixelMessage `json:"pixels,omitempty"`
-	UserID       string         `json:"userId,omitempty"`
-	Nickname      string         `json:"nickname,omitempty"`
-	IdentityToken string         `json:"identityToken,omitempty"`
-	Reason       string         `json:"reason,omitempty"`
-	RetryAfterMs int64          `json:"retryAfterMs,omitempty"`
-	NowMs        int64          `json:"nowMs,omitempty"`
-	CooldownMs      int64 `json:"cooldownMs,omitempty"`
-	CooldownUntilMs int64 `json:"cooldownUntilMs,omitempty"`
-	CooldownBypass  bool  `json:"cooldownBypass,omitempty"`
-	GridSize        int   `json:"gridSize,omitempty"`
-	ChunkSize       int   `json:"chunkSize,omitempty"`
-	Stats        *UserStats     `json:"stats,omitempty"`
-	Leaderboard  []LeaderboardEntry `json:"leaderboard,omitempty"`
-	ColorStats   map[string]int64   `json:"colorStats,omitempty"`
-	Chunk        *ChunkPayload  `json:"chunk,omitempty"`
-	History      []PixelHistoryEntry `json:"history,omitempty"`
-	Message      string         `json:"message,omitempty"`
+	Type            string              `json:"type"`
+	Pixel           *PixelMessage       `json:"pixel,omitempty"`
+	Pixels          []PixelMessage      `json:"pixels,omitempty"`
+	UserID          string              `json:"userId,omitempty"`
+	Nickname        string              `json:"nickname,omitempty"`
+	IdentityToken   string              `json:"identityToken,omitempty"`
+	Reason          string              `json:"reason,omitempty"`
+	RetryAfterMs    int64               `json:"retryAfterMs,omitempty"`
+	NowMs           int64               `json:"nowMs,omitempty"`
+	CooldownMs      int64               `json:"cooldownMs,omitempty"`
+	CooldownUntilMs int64               `json:"cooldownUntilMs,omitempty"`
+	CooldownBypass  bool                `json:"cooldownBypass,omitempty"`
+	GridSize        int                 `json:"gridSize,omitempty"`
+	ChunkSize       int                 `json:"chunkSize,omitempty"`
+	Stats           *UserStats          `json:"stats,omitempty"`
+	Leaderboard     []LeaderboardEntry  `json:"leaderboard,omitempty"`
+	ColorStats      map[string]int64    `json:"colorStats,omitempty"`
+	Chunk           *ChunkPayload       `json:"chunk,omitempty"`
+	History         []PixelHistoryEntry `json:"history,omitempty"`
+	Message         string              `json:"message,omitempty"`
 }
 
 type ClientSession struct {
-	Conn              *websocket.Conn
-	ConnID            string
-	Authenticated     bool
-	UserID            string
-	Nickname          string
-	WindowStart       time.Time
-	WindowMsgCount    int
-	LastPlacementAt   time.Time
-	LastChunkAt       time.Time
-	CooldownUntilMs   int64
-	SubscribedChunks  map[string]struct{} // Format: "cx_cy"
-	ClientIP          string              // Track client IP for rate limiting
+	Conn             *websocket.Conn
+	ConnID           string
+	Authenticated    bool
+	UserID           string
+	Nickname         string
+	WindowStart      time.Time
+	WindowMsgCount   int
+	LastPlacementAt  time.Time
+	LastChunkAt      time.Time
+	CooldownUntilMs  int64
+	SubscribedChunks map[string]struct{} // Format: "cx_cy"
+	ClientIP         string              // Track client IP for rate limiting
 }
 
 type PlacementEvent struct {
@@ -95,14 +95,22 @@ type PlacementEvent struct {
 }
 
 type UserStats struct {
-	UserID              string           `json:"userId"`
-	Nickname            string           `json:"nickname"`
-	TotalPlacements     int64            `json:"totalPlacements"`
-	PlacementsToday     int64            `json:"placementsToday"`
-	LastPlacementAt     int64            `json:"lastPlacementAt"`
-	LastPlacementDay    string           `json:"lastPlacementDay,omitempty"`
-	LastNicknameChangeAt int64           `json:"lastNicknameChangeAt,omitempty"`
-	ColorCounts         map[string]int64 `json:"colorCounts,omitempty"`
+	UserID                     string           `json:"userId"`
+	Nickname                   string           `json:"nickname"`
+	TotalPlacements            int64            `json:"totalPlacements"`
+	PlacementsToday            int64            `json:"placementsToday"`
+	LastPlacementAt            int64            `json:"lastPlacementAt"`
+	LastPlacementDay           string           `json:"lastPlacementDay,omitempty"`
+	LastNicknameChangeAt       int64            `json:"lastNicknameChangeAt,omitempty"`
+	PixelsUnchanged1h          int64            `json:"pixelsUnchanged1h,omitempty"`
+	PixelsUnchanged24h         int64            `json:"pixelsUnchanged24h,omitempty"`
+	AverageLifetimeMs          int64            `json:"averageLifetimeMs,omitempty"`
+	LongestSurvivingMs         int64            `json:"longestSurvivingMs,omitempty"`
+	LifetimeTotalMs            int64            `json:"lifetimeTotalMs,omitempty"`
+	LifetimeSamples            int64            `json:"lifetimeSamples,omitempty"`
+	LongestCompletedLifetimeMs int64            `json:"longestCompletedLifetimeMs,omitempty"`
+	ActivePlacements           map[string]int64 `json:"activePlacements,omitempty"`
+	ColorCounts                map[string]int64 `json:"colorCounts,omitempty"`
 }
 
 type LeaderboardEntry struct {
@@ -137,12 +145,12 @@ type AdminCooldownRequest struct {
 }
 
 type AdminModerationRequest struct {
-	UserID       string `json:"userId"`
-	MuteUntilMs  *int64 `json:"muteUntilMs,omitempty"`
+	UserID        string `json:"userId"`
+	MuteUntilMs   *int64 `json:"muteUntilMs,omitempty"`
 	FreezeUntilMs *int64 `json:"freezeUntilMs,omitempty"`
-	ClearMute    bool   `json:"clearMute,omitempty"`
-	ClearFreeze  bool   `json:"clearFreeze,omitempty"`
-	Reason       string `json:"reason,omitempty"`
+	ClearMute     bool   `json:"clearMute,omitempty"`
+	ClearFreeze   bool   `json:"clearFreeze,omitempty"`
+	Reason        string `json:"reason,omitempty"`
 }
 
 type AdminRollbackWindowRequest struct {
@@ -167,13 +175,13 @@ type UserModerationState struct {
 }
 
 type SuspiciousActivity struct {
-	UserID       string         `json:"userId,omitempty"`
-	Nickname     string         `json:"nickname,omitempty"`
-	ClientIP     string         `json:"clientIp,omitempty"`
-	Score        int64          `json:"score"`
-	LastEvent    string         `json:"lastEvent,omitempty"`
-	LastAt       int64          `json:"lastAt"`
-	EventCounts  map[string]int64 `json:"eventCounts,omitempty"`
+	UserID      string           `json:"userId,omitempty"`
+	Nickname    string           `json:"nickname,omitempty"`
+	ClientIP    string           `json:"clientIp,omitempty"`
+	Score       int64            `json:"score"`
+	LastEvent   string           `json:"lastEvent,omitempty"`
+	LastAt      int64            `json:"lastAt"`
+	EventCounts map[string]int64 `json:"eventCounts,omitempty"`
 }
 
 var nicknameRegex = regexp.MustCompile(`^[a-zA-Z0-9_ ]{3,20}$`)
@@ -225,8 +233,8 @@ var ipRateLimitsMutex sync.Mutex
 
 // Constants for rate limiting
 const (
-	IPRateLimitWindow  = 10 * time.Second
-	IPRateLimitMax     = 100 // Max requests per IP per window
+	IPRateLimitWindow = 10 * time.Second
+	IPRateLimitMax    = 100 // Max requests per IP per window
 )
 
 func isAllowedWebSocketOrigin(r *http.Request) bool {
@@ -260,7 +268,10 @@ var clients = make(map[*websocket.Conn]*ClientSession)
 var clientsMutex sync.Mutex
 var broadcast = make(chan PlacementEvent, 512)
 var pendingWrites = make(chan PlacementEvent, 256)
-var pendingDeletes = make(chan struct{ X int; Y int }, 256) // Channel for pixel deletions
+var pendingDeletes = make(chan struct {
+	X int
+	Y int
+}, 256) // Channel for pixel deletions
 
 var canvasState = make(map[string]PixelMessage)
 var stateMutex sync.RWMutex
@@ -346,7 +357,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	dbURL := strings.TrimSpace(os.Getenv("FIREBASE_DATABASE_URL"))
 	if dbURL == "" || strings.Contains(dbURL, "YOUR_PROJECT") {
 		log.Fatal("Missing/invalid FIREBASE_DATABASE_URL env var (required to persist pixels).")
@@ -386,7 +397,7 @@ func main() {
 		http.Redirect(w, r, "/admin.html", http.StatusTemporaryRedirect)
 	})
 	go handleMessages()
-	go persistenceWorker() // Start the write queue processor
+	go persistenceWorker()  // Start the write queue processor
 	go cleanupOldIPLimits() // Start IP rate limit cleanup
 	if appConfig.SyncEnabled {
 		go syncCanvasStateLoop()
@@ -463,10 +474,10 @@ func syncCanvasStateOnce() (int, error) {
 	changed := make([]PixelMessage, 0, 32)
 	stateMutex.Lock()
 	defer stateMutex.Unlock()
-	
+
 	currentLastSync := lastSyncAt
 	newLastSync := time.Now().UnixMilli()
-	
+
 	for key, px := range dbPixels {
 		// Only process pixels updated after the last sync time
 		if px.UpdatedAt > currentLastSync {
@@ -486,7 +497,7 @@ func syncCanvasStateOnce() (int, error) {
 			changed = append(changed, px)
 		}
 	}
-	
+
 	// Update lastSyncAt for next iteration
 	lastSyncAt = newLastSync
 
@@ -544,7 +555,7 @@ func loadInitialState() {
 		})
 	}
 	stateMutex.Unlock()
-	
+
 	// Set last sync time to now to start syncing only new changes
 	lastSyncAt = now
 	log.Printf("Loaded %d pixels into memory.\n", len(canvasState))
@@ -614,7 +625,7 @@ func getCellHistory(coordKey string) []PixelHistoryEntry {
 	}
 
 	var persisted []PixelHistoryEntry
-	if err := dbClient.NewRef("pixel_history/" + coordKey).Get(ctx, &persisted); err == nil && len(persisted) > 0 {
+	if err := dbClient.NewRef("pixel_history/"+coordKey).Get(ctx, &persisted); err == nil && len(persisted) > 0 {
 		historyMutex.Lock()
 		cellHistory[coordKey] = persisted
 		historyMutex.Unlock()
@@ -627,13 +638,13 @@ func getCellHistory(coordKey string) []PixelHistoryEntry {
 }
 
 func persistCellHistory(coordKey string, history []PixelHistoryEntry) {
-	if err := dbClient.NewRef("pixel_history/" + coordKey).Set(ctx, history); err != nil {
+	if err := dbClient.NewRef("pixel_history/"+coordKey).Set(ctx, history); err != nil {
 		log.Println("Failed to persist pixel history:", coordKey, err)
 	}
 }
 
 func persistUserModeration(uid string, state UserModerationState) {
-	if err := dbClient.NewRef("moderation/" + uid).Set(ctx, state); err != nil {
+	if err := dbClient.NewRef("moderation/"+uid).Set(ctx, state); err != nil {
 		log.Println("Failed to persist moderation state:", uid, err)
 	}
 }
@@ -870,14 +881,18 @@ func getOrCreateStats(uid, nickname string) *UserStats {
 	s, ok := userStats[uid]
 	if !ok {
 		s = &UserStats{
-			UserID:          uid,
-			Nickname:        nickname,
-			TotalPlacements: 0,
-			PlacementsToday: 0,
-			LastPlacementAt: 0,
-			ColorCounts:     make(map[string]int64),
+			UserID:           uid,
+			Nickname:         nickname,
+			TotalPlacements:  0,
+			PlacementsToday:  0,
+			LastPlacementAt:  0,
+			ActivePlacements: make(map[string]int64),
+			ColorCounts:      make(map[string]int64),
 		}
 		userStats[uid] = s
+	}
+	if s.ActivePlacements == nil {
+		s.ActivePlacements = make(map[string]int64)
 	}
 	if s.ColorCounts == nil {
 		s.ColorCounts = make(map[string]int64)
@@ -888,7 +903,7 @@ func getOrCreateStats(uid, nickname string) *UserStats {
 	return s
 }
 
-func updateUserStatsOnPlacement(stats *UserStats, color string, now time.Time) {
+func updateUserStatsOnPlacement(stats *UserStats, coordKey, color string, now time.Time) {
 	stats.TotalPlacements++
 	stats.LastPlacementAt = now.UnixMilli()
 
@@ -903,12 +918,112 @@ func updateUserStatsOnPlacement(stats *UserStats, color string, now time.Time) {
 	if stats.ColorCounts == nil {
 		stats.ColorCounts = make(map[string]int64)
 	}
+	if stats.ActivePlacements == nil {
+		stats.ActivePlacements = make(map[string]int64)
+	}
 	colorKey := strings.ToLower(strings.TrimSpace(color))
 	colorKey = strings.TrimPrefix(colorKey, "#")
 	if colorKey == "" {
 		colorKey = "unknown"
 	}
 	stats.ColorCounts[colorKey]++
+	stats.ActivePlacements[coordKey] = now.UnixMilli()
+	recalculateRetentionMetrics(stats, now.UnixMilli())
+}
+
+func closeActivePlacement(stats *UserStats, coordKey string, endedAtMs int64) {
+	if stats == nil || coordKey == "" || stats.ActivePlacements == nil {
+		return
+	}
+	placedAtMs, ok := stats.ActivePlacements[coordKey]
+	if !ok {
+		return
+	}
+	if endedAtMs < placedAtMs {
+		endedAtMs = placedAtMs
+	}
+	lifetimeMs := endedAtMs - placedAtMs
+	stats.LifetimeSamples++
+	stats.LifetimeTotalMs += lifetimeMs
+	if lifetimeMs > stats.LongestCompletedLifetimeMs {
+		stats.LongestCompletedLifetimeMs = lifetimeMs
+	}
+	delete(stats.ActivePlacements, coordKey)
+}
+
+func recalculateRetentionMetrics(stats *UserStats, nowMs int64) {
+	if stats == nil {
+		return
+	}
+	if nowMs <= 0 {
+		nowMs = time.Now().UnixMilli()
+	}
+	if stats.LifetimeSamples > 0 {
+		stats.AverageLifetimeMs = stats.LifetimeTotalMs / stats.LifetimeSamples
+	} else {
+		stats.AverageLifetimeMs = 0
+	}
+
+	if stats.ActivePlacements == nil {
+		stats.PixelsUnchanged1h = 0
+		stats.PixelsUnchanged24h = 0
+		stats.LongestSurvivingMs = stats.LongestCompletedLifetimeMs
+		return
+	}
+
+	oneHourCutoff := nowMs - int64(time.Hour/time.Millisecond)
+	twentyFourHourCutoff := nowMs - int64((24*time.Hour)/time.Millisecond)
+	var unchanged1h int64
+	var unchanged24h int64
+	var longestActiveMs int64
+
+	for _, placedAtMs := range stats.ActivePlacements {
+		if placedAtMs <= oneHourCutoff {
+			unchanged1h++
+		}
+		if placedAtMs <= twentyFourHourCutoff {
+			unchanged24h++
+		}
+		ageMs := nowMs - placedAtMs
+		if ageMs > longestActiveMs {
+			longestActiveMs = ageMs
+		}
+	}
+
+	stats.PixelsUnchanged1h = unchanged1h
+	stats.PixelsUnchanged24h = unchanged24h
+	if longestActiveMs > stats.LongestCompletedLifetimeMs {
+		stats.LongestSurvivingMs = longestActiveMs
+	} else {
+		stats.LongestSurvivingMs = stats.LongestCompletedLifetimeMs
+	}
+}
+
+func buildStatsSnapshot(uid string) *UserStats {
+	statsMutex.Lock()
+	defer statsMutex.Unlock()
+
+	s, ok := userStats[uid]
+	if !ok || s == nil {
+		return nil
+	}
+	recalculateRetentionMetrics(s, time.Now().UnixMilli())
+
+	copyStats := *s
+	if s.ColorCounts != nil {
+		copyStats.ColorCounts = make(map[string]int64, len(s.ColorCounts))
+		for color, count := range s.ColorCounts {
+			copyStats.ColorCounts[color] = count
+		}
+	}
+	if s.ActivePlacements != nil {
+		copyStats.ActivePlacements = make(map[string]int64, len(s.ActivePlacements))
+		for key, ts := range s.ActivePlacements {
+			copyStats.ActivePlacements[key] = ts
+		}
+	}
+
+	return &copyStats
 }
 
 func persistUserProfile(uid, nickname string) {
@@ -933,7 +1048,7 @@ func persistUserCooldown(uid string, cooldownUntilMs int64) {
 
 func loadUserCooldown(uid string) int64 {
 	var cooldownVal interface{}
-	if err := dbClient.NewRef("cooldowns/" + uid).Get(ctx, &cooldownVal); err != nil {
+	if err := dbClient.NewRef("cooldowns/"+uid).Get(ctx, &cooldownVal); err != nil {
 		return 0
 	}
 	if cooldownVal == nil {
@@ -1161,6 +1276,19 @@ func handleAdminRollbackWindow(w http.ResponseWriter, r *http.Request) {
 	pixelsRef := dbClient.NewRef("pixels")
 	for _, px := range removed {
 		coordKey := fmt.Sprintf("%d_%d", px.X, px.Y)
+		if px.OwnerUserID != "" {
+			var ownerStatsRef *UserStats
+			statsMutex.Lock()
+			if ownerStats, ok := userStats[px.OwnerUserID]; ok {
+				closeActivePlacement(ownerStats, coordKey, time.Now().UnixMilli())
+				recalculateRetentionMetrics(ownerStats, time.Now().UnixMilli())
+				ownerStatsRef = ownerStats
+			}
+			statsMutex.Unlock()
+			if ownerStatsRef != nil {
+				persistUserStats(px.OwnerUserID, ownerStatsRef)
+			}
+		}
 		if err := pixelsRef.Child(coordKey).Delete(ctx); err != nil {
 			log.Println("Failed rollback delete:", coordKey, err)
 		}
@@ -1398,6 +1526,7 @@ func handleAuthMessage(session *ClientSession, msg ClientMessage) {
 	stats := getOrCreateStats(session.UserID, session.Nickname)
 	persistUserProfile(session.UserID, session.Nickname)
 	persistUserStats(session.UserID, stats)
+	statsSnapshot := buildStatsSnapshot(session.UserID)
 
 	_ = writeServerMessage(session.Conn, ServerMessage{
 		Type:            "auth_ok",
@@ -1408,7 +1537,7 @@ func handleAuthMessage(session *ClientSession, msg ClientMessage) {
 		CooldownBypass:  isCooldownBypassed(session.UserID),
 		GridSize:        appConfig.GridSize,
 		ChunkSize:       appConfig.ChunkSize,
-		Stats:           stats,
+		Stats:           statsSnapshot,
 		Leaderboard:     buildLeaderboard(5),
 		ColorStats:      buildColorStats(),
 		NowMs:           time.Now().UnixMilli(),
@@ -1440,7 +1569,6 @@ func inCooldown(session *ClientSession, now time.Time) (bool, int64) {
 	}
 	return true, session.CooldownUntilMs - nowMs
 }
-
 
 // issueIdentityToken returns an HMAC-SHA256 of userID signed with the app's IdentitySecret.
 func issueIdentityToken(userID string) string {
@@ -1581,9 +1709,9 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		now := time.Now()
 		if antiSpamExceeded(session, now) {
 			_ = writeServerMessage(ws, ServerMessage{
-				Type:   "error",
-				Reason: "anti_spam",
-				NowMs:  now.UnixMilli(),
+				Type:    "error",
+				Reason:  "anti_spam",
+				NowMs:   now.UnixMilli(),
 				Message: "Too many messages in a short time. Slow down.",
 			})
 			trackSuspicious(session, "anti_spam", 2)
@@ -1623,9 +1751,9 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		case "place_pixel":
 			if !session.Authenticated {
 				_ = writeServerMessage(ws, ServerMessage{
-					Type:   "pixel_rejected",
-					Reason: "auth_required",
-					NowMs:  now.UnixMilli(),
+					Type:    "pixel_rejected",
+					Reason:  "auth_required",
+					NowMs:   now.UnixMilli(),
 					Message: "Authenticate first before placing pixels.",
 				})
 				continue
@@ -1654,9 +1782,9 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			}
 			if !validateColor(msg.Pixel.Color) {
 				_ = writeServerMessage(ws, ServerMessage{
-					Type:   "pixel_rejected",
-					Reason: "invalid_color",
-					NowMs:  now.UnixMilli(),
+					Type:    "pixel_rejected",
+					Reason:  "invalid_color",
+					NowMs:   now.UnixMilli(),
 					Message: "Color not in whitelist. Use an allowed color.",
 				})
 				trackSuspicious(session, "invalid_color", 1)
@@ -1664,11 +1792,11 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			}
 			if cooldown, remaining := inCooldown(session, now); cooldown {
 				_ = writeServerMessage(ws, ServerMessage{
-					Type:         "pixel_rejected",
-					Reason:       "cooldown",
-					RetryAfterMs: remaining,
+					Type:            "pixel_rejected",
+					Reason:          "cooldown",
+					RetryAfterMs:    remaining,
 					CooldownUntilMs: session.CooldownUntilMs,
-					NowMs:        now.UnixMilli(),
+					NowMs:           now.UnixMilli(),
 				})
 				continue
 			}
@@ -1683,9 +1811,9 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		case "undo_pixel":
 			if !session.Authenticated {
 				_ = writeServerMessage(ws, ServerMessage{
-					Type:   "pixel_rejected",
-					Reason: "auth_required",
-					NowMs:  now.UnixMilli(),
+					Type:    "pixel_rejected",
+					Reason:  "auth_required",
+					NowMs:   now.UnixMilli(),
 					Message: "Authenticate first.",
 				})
 				continue
@@ -1711,7 +1839,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 				})
 				continue
 			}
-			
+
 			coordKey := fmt.Sprintf("%d_%d", msg.Pixel.X, msg.Pixel.Y)
 			stateMutex.Lock()
 			px, exists := canvasState[coordKey]
@@ -1726,20 +1854,20 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 				})
 				continue
 			}
-			
+
 			// Check if pixel was placed recently (within 30 seconds)
 			lastPlaceTime := time.UnixMilli(px.UpdatedAt)
 			if now.Sub(lastPlaceTime) > 30*time.Second {
 				stateMutex.Unlock()
 				_ = writeServerMessage(ws, ServerMessage{
-					Type:   "pixel_rejected",
-					Reason: "undo_expired",
-					NowMs:  now.UnixMilli(),
+					Type:    "pixel_rejected",
+					Reason:  "undo_expired",
+					NowMs:   now.UnixMilli(),
 					Message: "Can only undo pixels placed within 30 seconds.",
 				})
 				continue
 			}
-			
+
 			// Remove the pixel
 			delete(canvasState, coordKey)
 			stateMutex.Unlock()
@@ -1751,14 +1879,17 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 				UpdatedAt: now.UnixMilli(),
 			})
 			persistCellHistory(coordKey, history)
-			
+
 			// Queue the deletion for database persistence
 			select {
-			case pendingDeletes <- struct{ X int; Y int }{X: msg.Pixel.X, Y: msg.Pixel.Y}:
+			case pendingDeletes <- struct {
+				X int
+				Y int
+			}{X: msg.Pixel.X, Y: msg.Pixel.Y}:
 			default:
 				log.Println("Warning: pendingDeletes channel full, pixel deletion may not persist")
 			}
-			
+
 			// Decrement user stats
 			stats := getOrCreateStats(session.UserID, session.Nickname)
 			statsMutex.Lock()
@@ -1774,14 +1905,19 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 					stats.ColorCounts[px.Color]--
 				}
 			}
+			if stats.ActivePlacements != nil {
+				delete(stats.ActivePlacements, coordKey)
+			}
+			recalculateRetentionMetrics(stats, now.UnixMilli())
 			statsMutex.Unlock()
-			
+			persistUserStats(session.UserID, stats)
+
 			// Broadcast pixel removal (send as pixel_update with empty/cleared state)
 			// or send as a distinct message type
 			cx := msg.Pixel.X / appConfig.ChunkSize
 			cy := msg.Pixel.Y / appConfig.ChunkSize
 			chunkKey := fmt.Sprintf("%d_%d", cx, cy)
-			
+
 			for _, client := range subscribedClientsSnapshot(chunkKey) {
 				serverMsg := ServerMessage{
 					Type:     "pixel_removed",
@@ -1795,10 +1931,10 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 					removeClient(client)
 				}
 			}
-			
+
 			_ = writeServerMessage(ws, ServerMessage{
-				Type:   "undo_success",
-				NowMs:  now.UnixMilli(),
+				Type:    "undo_success",
+				NowMs:   now.UnixMilli(),
 				Message: "Pixel undone successfully.",
 			})
 		case "change_nickname":
@@ -1830,7 +1966,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 				trackSuspicious(session, "muted_change_nickname_attempt", 1)
 				continue
 			}
-			
+
 			newNickname := sanitizeNickname(msg.Nickname)
 			if newNickname == "" || !nicknameRegex.MatchString(newNickname) {
 				_ = writeServerMessage(ws, ServerMessage{
@@ -1841,66 +1977,25 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 				})
 				continue
 			}
-			
-			// Check cooldown - once per day
+
+			// Update nickname immediately — no cooldown or placement cost
 			stats := getOrCreateStats(session.UserID, session.Nickname)
-			statsMutex.RLock()
-			lastChange := stats.LastNicknameChangeAt
-			statsMutex.RUnlock()
-			
-			if lastChange > 0 {
-				lastChangeTime := time.UnixMilli(lastChange)
-				if now.Sub(lastChangeTime) < 24*time.Hour {
-					remainingMs := (24*time.Hour - now.Sub(lastChangeTime)).Milliseconds()
-					_ = writeServerMessage(ws, ServerMessage{
-						Type:         "nickname_change_rejected",
-						Reason:       "cooldown",
-						NowMs:        now.UnixMilli(),
-						RetryAfterMs: remainingMs,
-						Message:      "You can only change nickname once per day.",
-					})
-					continue
-				}
-			}
-			
-			// Check cost - need at least 10 placements
-			statsMutex.RLock()
-			placements := stats.TotalPlacements
-			statsMutex.RUnlock()
-			
-			if placements < 10 {
-				_ = writeServerMessage(ws, ServerMessage{
-					Type:    "nickname_change_rejected",
-					Reason:  "insufficient_placements",
-					NowMs:   now.UnixMilli(),
-					Message: fmt.Sprintf("You need at least 10 placements to change nickname. You have %d.", placements),
-				})
-				continue
-			}
-			
-			// Deduct cost and update nickname
 			statsMutex.Lock()
-			stats.TotalPlacements -= 10
-			if stats.PlacementsToday >= 10 {
-				stats.PlacementsToday -= 10
-			}
-			stats.LastNicknameChangeAt = now.UnixMilli()
 			stats.Nickname = newNickname
 			statsMutex.Unlock()
-			
+
 			session.Nickname = newNickname
-			session.LastPlacementAt = now
-			
+
 			// Persist updates
 			persistUserProfile(session.UserID, newNickname)
 			persistUserStats(session.UserID, stats)
-			
+
 			_ = writeServerMessage(ws, ServerMessage{
 				Type:     "nickname_changed",
 				NowMs:    now.UnixMilli(),
-				Message:  fmt.Sprintf("Nickname changed to '%s' (cost: 10 placements).", newNickname),
+				Message:  fmt.Sprintf("Nickname changed to '%s'.", newNickname),
 				Nickname: newNickname,
-				Stats:    stats,
+				Stats:    buildStatsSnapshot(session.UserID),
 			})
 		default:
 		}
@@ -1911,14 +2006,17 @@ func persistenceWorker() {
 	// Batch write settings
 	const batchFlushInterval = 150 * time.Millisecond
 	const batchFlushSize = 20
-	
+
 	ticker := time.NewTicker(batchFlushInterval)
 	defer ticker.Stop()
-	
+
 	batch := make([]PlacementEvent, 0, batchFlushSize)
-	deletes := make([]struct{ X int; Y int }, 0, batchFlushSize)
+	deletes := make([]struct {
+		X int
+		Y int
+	}, 0, batchFlushSize)
 	statsToUpdate := make(map[string]*UserStats)
-	
+
 	for {
 		select {
 		case event := <-pendingWrites:
@@ -1926,7 +2024,7 @@ func persistenceWorker() {
 			// Update stats map for batch flush
 			stats := getOrCreateStats(event.Session.UserID, event.Session.Nickname)
 			statsToUpdate[event.Session.UserID] = stats
-			
+
 			// Flush if batch reaches size threshold
 			if len(batch) >= batchFlushSize {
 				flushBatch(batch, deletes, statsToUpdate)
@@ -1936,7 +2034,7 @@ func persistenceWorker() {
 			}
 		case deletePixel := <-pendingDeletes:
 			deletes = append(deletes, deletePixel)
-			
+
 			// Flush if delete batch reaches size threshold
 			if len(deletes) >= batchFlushSize {
 				flushBatch(batch, deletes, statsToUpdate)
@@ -1956,30 +2054,33 @@ func persistenceWorker() {
 	}
 }
 
-func flushBatch(batch []PlacementEvent, deletes []struct{ X int; Y int }, statsToUpdate map[string]*UserStats) {
+func flushBatch(batch []PlacementEvent, deletes []struct {
+	X int
+	Y int
+}, statsToUpdate map[string]*UserStats) {
 	if len(batch) == 0 && len(deletes) == 0 {
 		return
 	}
-	
+
 	// Create batch write operations
 	batchCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	
+
 	pixelsRef := dbClient.NewRef("pixels")
 	statsRef := dbClient.NewRef("stats")
 	cooldownRef := dbClient.NewRef("cooldowns")
-	
+
 	for _, event := range batch {
 		coordKey := fmt.Sprintf("%d_%d", event.Pixel.X, event.Pixel.Y)
-		
+
 		// Write pixel with UpdatedAt timestamp
 		pixel := event.Pixel
 		pixel.UpdatedAt = time.Now().UnixMilli()
-		
+
 		if err := pixelsRef.Child(coordKey).Set(batchCtx, pixel); err != nil {
 			log.Println("Failed to persist pixel in batch:", coordKey, err)
 		}
-		
+
 		// Write cooldown
 		if !isCooldownBypassed(event.Session.UserID) {
 			if err := cooldownRef.Child(event.Session.UserID).Set(batchCtx, event.Session.CooldownUntilMs); err != nil {
@@ -1987,7 +2088,7 @@ func flushBatch(batch []PlacementEvent, deletes []struct{ X int; Y int }, statsT
 			}
 		}
 	}
-	
+
 	// Delete pixels from database
 	for _, deletePixel := range deletes {
 		coordKey := fmt.Sprintf("%d_%d", deletePixel.X, deletePixel.Y)
@@ -1995,7 +2096,7 @@ func flushBatch(batch []PlacementEvent, deletes []struct{ X int; Y int }, statsT
 			log.Println("Failed to delete pixel from database:", coordKey, err)
 		}
 	}
-	
+
 	// Write all updated stats in batch
 	for uid, stats := range statsToUpdate {
 		if err := statsRef.Child(uid).Set(batchCtx, stats); err != nil {
@@ -2015,6 +2116,7 @@ func handleMessages() {
 
 		coordKey := fmt.Sprintf("%d_%d", msg.X, msg.Y)
 		stateMutex.Lock()
+		prevPixel, hadPrevPixel := canvasState[coordKey]
 		canvasState[coordKey] = msg
 		stateMutex.Unlock()
 		history := appendCellHistory(coordKey, PixelHistoryEntry{
@@ -2027,7 +2129,23 @@ func handleMessages() {
 		persistCellHistory(coordKey, history)
 
 		stats := getOrCreateStats(event.Session.UserID, event.Session.Nickname)
-		updateUserStatsOnPlacement(stats, msg.Color, now)
+		var prevOwnerID string
+		var prevOwnerStatsRef *UserStats
+		statsMutex.Lock()
+		if hadPrevPixel && prevPixel.OwnerUserID != "" {
+			if prevOwnerStats, ok := userStats[prevPixel.OwnerUserID]; ok {
+				closeActivePlacement(prevOwnerStats, coordKey, msg.UpdatedAt)
+				recalculateRetentionMetrics(prevOwnerStats, msg.UpdatedAt)
+				prevOwnerID = prevPixel.OwnerUserID
+				prevOwnerStatsRef = prevOwnerStats
+			}
+		}
+		updateUserStatsOnPlacement(stats, coordKey, msg.Color, now)
+		statsMutex.Unlock()
+		if prevOwnerID != "" && prevOwnerStatsRef != nil && prevOwnerID != event.Session.UserID {
+			persistUserStats(prevOwnerID, prevOwnerStatsRef)
+		}
+		statsSnapshot := buildStatsSnapshot(event.Session.UserID)
 
 		// Calculate which chunk this pixel belongs to
 		cx := msg.X / appConfig.ChunkSize
@@ -2066,7 +2184,7 @@ func handleMessages() {
 			GridSize:        appConfig.GridSize,
 			ChunkSize:       appConfig.ChunkSize,
 			NowMs:           now.UnixMilli(),
-			Stats:           stats,
+			Stats:           statsSnapshot,
 			Leaderboard:     buildLeaderboard(5),
 			ColorStats:      buildColorStats(),
 		})

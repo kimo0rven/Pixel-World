@@ -12,24 +12,35 @@
     <h1>Pixel World</h1>
 
     <div class="controls">
-        <span id="zoomDisplay" class="pill">Zoom: 1x</span>
-        <span id="timerDisplay" class="pill cooldown-display">Ready to paint!</span>
-        <span id="statsDisplay" class="pill">Placements: 0</span>
-        <div class="pill" style="display:flex; align-items:center; gap:8px;">
-            <span>Color:</span>
-            <span id="colorPreview"
-                style="display:inline-block;width:22px;height:22px;border-radius:5px;border:2px solid #fff;flex-shrink:0;"></span>
-            <input type="color" id="colorPicker" style="display:none;">
-        </div>
-        <div class="palette" id="palette"></div>
-        <span id="nicknameDisplay" class="pill">User: -</span>
+        <!-- Always visible: connection status -->
         <span id="connStatus" class="pill">Connecting...</span>
-        <input type="checkbox" id="gridToggle" title="Toggle grid (G)" style="display:none;">
-        <label for="gridToggle" class="btn" title="Toggle grid (G)">Grid</label>
-        <button class="btn" id="themeToggle" title="Toggle dark/light mode">Theme</button>
-        <button class="btn" id="statsToggleBtn" title="Open stats drawer">Stats</button>
-        <button class="btn" id="resetView" title="Reset zoom/pan (R)">Reset</button>
-        <button class="btn" id="exportBtn" title="Export canvas as PNG">Export</button>
+        <span id="zoomDisplay" class="pill">Zoom: 1x</span>
+
+        <!-- Auth-only: user info pills -->
+        <span id="nicknameDisplay" class="pill auth-only">User: -</span>
+        <span id="timerDisplay" class="pill cooldown-display auth-only">Ready to paint!</span>
+        <!-- <span id="statsDisplay" class="pill auth-only">Placements: 0</span> -->
+
+        <!-- Always visible: palette as context clue; color picker auth-only -->
+        <div id="colorGroup" style="display:contents;">
+            <div class="pill auth-only" style="display:flex; align-items:center; gap:8px;">
+                <span>Color:</span>
+                <span id="colorPreview"
+                    style="display:inline-block;width:22px;height:22px;border-radius:5px;border:2px solid #fff;flex-shrink:0;"></span>
+                <input type="color" id="colorPicker" style="display:none;">
+            </div>
+            <div class="palette" id="palette"></div>
+            <button class="btn guest-only" id="loginBtn" title="Sign in">Login</button>
+        </div>
+
+        <!-- Always visible: utility buttons -->
+        <div class="controls-btn-group">
+            <input type="checkbox" id="gridToggle" title="Toggle grid (G)" style="display:none;">
+            <button class="btn" id="resetView" title="Reset zoom/pan (R)">Reset</button>
+            <button class="btn" id="exportBtn" title="Export canvas as PNG">Export</button>
+            <button class="btn auth-only" id="statsToggleBtn" title="Open stats drawer">Stats</button>
+            <button class="btn auth-only" id="logoutBtn" title="Sign out">Logout</button>
+        </div>
     </div>
 
     <div class="coord-input-bar" id="coordInputBar" style="display:none;">
@@ -79,6 +90,10 @@
             <div class="stats-row"><b>Total:</b> <span id="statsTotal">0</span></div>
             <div class="stats-row"><b>Today:</b> <span id="statsToday">0</span></div>
             <div class="stats-row"><b>Last placement:</b> <span id="statsLastPlacement">-</span></div>
+            <div class="stats-row"><b>Unchanged after 1h <span class="stat-help" title="How many of your currently visible pixels have stayed unchanged for at least 1 hour.">?</span>:</b> <span id="statsRetained1h">0</span></div>
+            <div class="stats-row"><b>Unchanged after 24h <span class="stat-help" title="How many of your currently visible pixels have stayed unchanged for at least 24 hours.">?</span>:</b> <span id="statsRetained24h">0</span></div>
+            <div class="stats-row"><b>Average lifetime <span class="stat-help" title="Average time your pixels survived before being replaced or removed.">?</span>:</b> <span id="statsAvgLifetime">-</span></div>
+            <div class="stats-row"><b>Longest-surviving pixel <span class="stat-help" title="Longest survival time among your pixels, including currently active ones.">?</span>:</b> <span id="statsLongestLifetime">-</span></div>
             <div class="stats-row">
                 <b>Your top colors:</b>
                 <div id="statsTopColors" class="top-colors-list">-</div>
@@ -166,6 +181,20 @@
         </div>
     </div>
     <div id="captchaBkg" class="modal-backdrop" aria-hidden="true"></div>
+
+    <!-- Fixed corner controls -->
+    <div class="corner-controls">
+        <label for="gridToggle" class="corner-btn" id="gridToggleLabel" title="Toggle grid (G)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none"
+                stroke="currentColor" stroke-width="1.5">
+                <rect x="1" y="1" width="7" height="7" rx="0.5" />
+                <rect x="10" y="1" width="7" height="7" rx="0.5" />
+                <rect x="1" y="10" width="7" height="7" rx="0.5" />
+                <rect x="10" y="10" width="7" height="7" rx="0.5" />
+            </svg>
+        </label>
+        <button class="corner-btn" id="themeToggle" title="Toggle dark/light mode">🌙</button>
+    </div>
 
     <script src="static/js/app.js" defer></script>
 </body>

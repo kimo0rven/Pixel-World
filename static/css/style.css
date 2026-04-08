@@ -45,6 +45,77 @@ canvas {
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+/* Auth-gated elements: hidden until body.is-authenticated is set */
+.auth-only {
+    display: none !important;
+}
+body.is-authenticated .auth-only {
+    display: inline-flex !important;
+}
+.guest-only {
+    display: inline-flex !important;
+}
+body.is-authenticated .guest-only {
+    display: none !important;
+}
+/* Wrapper div — uses display:contents so children flow inline in the flex bar */
+.auth-only-group {
+    display: none;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+body.is-authenticated .auth-only-group {
+    display: contents;
+}
+
+/* Button group: keeps utility buttons together */
+.controls-btn-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+/* Fixed corner icon buttons (theme + grid) */
+.corner-controls {
+    position: fixed;
+    top: 12px;
+    right: 14px;
+    z-index: 4;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.corner-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(8, 11, 18, 0.80);
+    backdrop-filter: blur(8px);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: #eaf2ff;
+    transition: background 0.15s, border-color 0.15s;
+    padding: 0;
+    line-height: 1;
+    user-select: none;
+}
+.corner-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+#gridToggle:checked ~ * #gridToggleLabel,
+#gridToggleLabel.active {
+    background: rgba(78, 115, 255, 0.28);
+    border-color: rgba(78, 115, 255, 0.65);
+}
+
 input[type="color"] {
     cursor: pointer;
     height: 30px;
@@ -107,7 +178,7 @@ input[type="color"] {
 }
 
 .hud {
-    position: absolute;
+    position: fixed;
     left: 14px;
     bottom: 14px;
     padding: 8px 10px;
@@ -196,6 +267,24 @@ input[type="color"] {
     border-radius: 10px;
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.stat-help {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-left: 4px;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: help;
+    color: #d9e7ff;
+    border: 1px solid rgba(255, 255, 255, 0.32);
+    background: rgba(255, 255, 255, 0.14);
+    vertical-align: middle;
 }
 
 .top-colors-list,
@@ -511,6 +600,16 @@ body.light-theme .controls {
     border-bottom: 1px solid rgba(0, 0, 0, 0.12);
 }
 
+body.light-theme .corner-btn {
+    background: rgba(255, 255, 255, 0.82);
+    border-color: rgba(0, 0, 0, 0.16);
+    color: #0b0f17;
+}
+body.light-theme .corner-btn:hover {
+    background: rgba(0, 0, 0, 0.10);
+    border-color: rgba(0, 0, 0, 0.22);
+}
+
 body.light-theme .pill,
 body.light-theme .btn {
     background: rgba(0, 0, 0, 0.08);
@@ -541,6 +640,12 @@ body.light-theme .modal-content {
     border-color: rgba(0, 0, 0, 0.12);
     background: rgba(0, 0, 0, 0.03);
     color: #1a1a2e;
+}
+
+body.light-theme .stat-help {
+    color: #1a1a2e;
+    border-color: rgba(0, 0, 0, 0.28);
+    background: rgba(0, 0, 0, 0.08);
 }
 
 body.light-theme .modal-content input[type="text"],

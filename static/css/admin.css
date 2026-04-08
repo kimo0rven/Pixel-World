@@ -8,6 +8,55 @@
     --danger: #ab1f2b;
 }
 
+body.dark-theme {
+    --bg: #0b0f17;
+    --card: #141922;
+    --text: #eaf2ff;
+    --muted: #8899bb;
+    --border: rgba(255, 255, 255, 0.10);
+    --accent: #22c9b8;
+    --danger: #e05555;
+    background: radial-gradient(circle at 20% 10%, rgba(78, 115, 255, 0.15), transparent 35%),
+        radial-gradient(circle at 80% 0%, rgba(22, 201, 184, 0.08), transparent 30%),
+        var(--bg);
+}
+body.dark-theme input,
+body.dark-theme select {
+    background: #1a2030;
+    color: var(--text);
+    border-color: var(--border);
+}
+body.dark-theme .list-item {
+    background: #1a2030;
+}
+body.dark-theme pre {
+    background: #070a10;
+}
+
+/* Corner theme toggle button */
+.corner-theme-btn {
+    position: fixed;
+    top: 12px;
+    right: 14px;
+    z-index: 100;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--card);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: background 0.15s, border-color 0.15s;
+    padding: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+.corner-theme-btn:hover {
+    background: var(--border);
+}
+
 * {
     box-sizing: border-box;
 }

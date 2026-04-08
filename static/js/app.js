@@ -47,6 +47,10 @@ const captchaOkBtn = document.getElementById('captchaOkBtn');
 const statsTotalEl = document.getElementById('statsTotal');
 const statsTodayEl = document.getElementById('statsToday');
 const statsLastPlacementEl = document.getElementById('statsLastPlacement');
+const statsRetained1hEl = document.getElementById('statsRetained1h');
+const statsRetained24hEl = document.getElementById('statsRetained24h');
+const statsAvgLifetimeEl = document.getElementById('statsAvgLifetime');
+const statsLongestLifetimeEl = document.getElementById('statsLongestLifetime');
 const statsTopColorsEl = document.getElementById('statsTopColors');
 const colorLeaderboardEl = document.getElementById('colorLeaderboard');
 const leaderboardTopEl = document.getElementById('leaderboardTop');
@@ -106,7 +110,7 @@ const state = {
     drawQueued: false,
     pendingReconnectTimer: null,
     userId: localStorage.getItem(STORAGE_USER_ID) || '',
-    nickname: localStorage.getItem(STORAGE_NICKNAME) || '',
+    nickname: '', // always set from server auth_ok, never from localStorage
     firebaseIdToken: localStorage.getItem(STORAGE_FIREBASE_ID_TOKEN) || '',
     email: localStorage.getItem(STORAGE_EMAIL) || '',
     firebaseWebApiKey: '',
@@ -118,6 +122,7 @@ const state = {
     theme: localStorage.getItem(STORAGE_THEME) || 'dark',
     connStateKind: 'ok',
     selectedColor: '#ff4500',
+    intentionalLogout: false,
 };
 
 const DEBUG = localStorage.getItem('pixel_world_debug') === '1';
@@ -137,9 +142,14 @@ function normalizeNickname(name) {
 function applyTheme() {
     if (state.theme === 'light') {
         document.body.classList.add('light-theme');
+        if (themeToggle) themeToggle.textContent = '\uD83C\uDF19'; // 🌙 = switch to dark
     } else {
         document.body.classList.remove('light-theme');
+        if (themeToggle) themeToggle.textContent = '\u2600\uFE0F'; // ☀️ = switch to light
     }
+    // Sync grid button active state
+    const gridLabel = document.getElementById('gridToggleLabel');
+    if (gridLabel) gridLabel.classList.toggle('active', showGrid);
 }
 
 function toggleTheme() {
@@ -155,6 +165,8 @@ function toggleTheme() {
 function toggleGrid() {
     showGrid = !showGrid;
     gridToggle.checked = showGrid;
+    const gridLabel = document.getElementById('gridToggleLabel');
+    if (gridLabel) gridLabel.classList.toggle('active', showGrid);
     queueDraw();
 }
 
@@ -366,7 +378,7 @@ function promptForNickname() {
             
             // Update state and display
             state.nickname = nickname;
-            updateNicknameDisplay();
+            updateAuthUI();
             
             resolve(nickname);
         };
@@ -475,7 +487,7 @@ function changeNickname() {
         const h2 = nicknameModal.querySelector('h2');
         const p = nicknameModal.querySelector('p');
         h2.textContent = 'Change Your Nickname';
-        p.innerHTML = `Cost: <strong>10 placements</strong> (you have ${state.stats?.totalPlacements || 0})`;
+        p.textContent = 'Choose a nickname (3-20 characters, alphanumeric, spaces, and underscores)';
         
         // Show modal
         nicknameModal.classList.add('show');
@@ -542,13 +554,27 @@ async function firebaseEmailPasswordAuth(mode, email, password) {
 
 function promptForAuth() {
     return new Promise((resolve) => {
+        const setAuthStatus = (kind, text) => {
+            if (!authStatusMsg) return;
+            authStatusMsg.textContent = text || '';
+            if (!text) {
+                authStatusMsg.style.color = '';
+                return;
+            }
+            if (kind === 'ok') {
+                authStatusMsg.style.color = 'var(--success, #27ae60)';
+            } else {
+                authStatusMsg.style.color = 'var(--warn, #e67e22)';
+            }
+        };
+
         const doAuth = async (mode) => {
             try {
                 const email = (authEmailInput.value || '').trim();
                 const password = authPasswordInput.value || '';
                 const nicknameCandidate = normalizeNickname(authNicknameInput.value || '');
                 if (!email || !password) {
-                    setConnState('warn', 'Email and password are required');
+                    setAuthStatus('warn', 'Email and password are required.');
                     return;
                 }
                 const result = await firebaseEmailPasswordAuth(mode, email, password);
@@ -556,14 +582,15 @@ function promptForAuth() {
                 state.email = result.email || email;
                 localStorage.setItem(STORAGE_FIREBASE_ID_TOKEN, state.firebaseIdToken);
                 localStorage.setItem(STORAGE_EMAIL, state.email);
-                if (nicknameCandidate) {
+                // Only pass candidate nickname for registration; server decides final value
+                if (mode === 'register' && nicknameCandidate) {
                     state.nickname = nicknameCandidate;
-                    localStorage.setItem(STORAGE_NICKNAME, state.nickname);
                 }
+                setAuthStatus('', '');
                 hideModal(authModal, authBkg);
                 resolve();
             } catch (err) {
-                setConnState('warn', `Auth failed: ${err.message || err}`);
+                setAuthStatus('warn', `Auth failed: ${err.message || err}`);
             }
         };
 
@@ -573,24 +600,22 @@ function promptForAuth() {
             e.preventDefault();
             const email = (authEmailInput.value || '').trim();
             if (!email) {
-                authStatusMsg.textContent = 'Enter your email above first.';
-                authStatusMsg.style.color = 'var(--warn, #e67e22)';
+                setAuthStatus('warn', 'Enter your email above first.');
                 return;
             }
             try {
                 if (!state.firebaseWebApiKey) await fetchAppConfig();
                 await firebaseSendPasswordReset(email);
-                authStatusMsg.textContent = `Reset email sent to ${email}`;
-                authStatusMsg.style.color = 'var(--success, #27ae60)';
+                setAuthStatus('ok', `Reset email sent to ${email}`);
             } catch (err) {
-                authStatusMsg.textContent = err.message || 'Failed to send reset email';
-                authStatusMsg.style.color = 'var(--warn, #e67e22)';
+                setAuthStatus('warn', err.message || 'Failed to send reset email');
             }
         };
 
         authEmailInput.value = state.email || '';
         authPasswordInput.value = '';
         authNicknameInput.value = state.nickname || '';
+        setAuthStatus('', '');
         showModal(authModal, authBkg);
         authEmailInput.focus();
     });
@@ -600,13 +625,7 @@ async function ensureIdentity() {
     if (!state.firebaseWebApiKey) {
         await fetchAppConfig();
     }
-    if (!state.firebaseIdToken) {
-        await promptForAuth();
-    }
-    if (!state.nickname) {
-        state.nickname = normalizeNickname((state.email || '').split('@')[0]) || 'Player';
-        localStorage.setItem(STORAGE_NICKNAME, state.nickname);
-    }
+    // Login is optional. We only authenticate if a token already exists or user clicks Login.
 }
 
 function loadCooldownFromStorage() {
@@ -720,20 +739,50 @@ function updateNicknameDisplay() {
     nicknameDisplay.textContent = `User: ${state.nickname || '-'}`;
 }
 
+function updateAuthUI() {
+    document.body.classList.toggle('is-authenticated', Boolean(state.authenticated));
+    updateNicknameDisplay();
+    if (state.connected) {
+        setConnState('ok', state.authenticated ? 'Connected' : 'Browsing');
+    }
+}
+
+function formatLifetimeMs(ms) {
+    const safeMs = Number(ms) || 0;
+    if (safeMs <= 0) return '-';
+    const totalSeconds = Math.floor(safeMs / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    if (minutes > 0) return `${minutes}m`;
+    return '<1m';
+}
+
 function renderStats() {
     if (!state.stats) {
-        statsDisplay.textContent = 'Placements: 0';
+        if (statsDisplay) statsDisplay.textContent = 'Placements: 0';
         statsTotalEl.textContent = '0';
         statsTodayEl.textContent = '0';
         statsLastPlacementEl.textContent = '-';
+        if (statsRetained1hEl) statsRetained1hEl.textContent = '0';
+        if (statsRetained24hEl) statsRetained24hEl.textContent = '0';
+        if (statsAvgLifetimeEl) statsAvgLifetimeEl.textContent = '-';
+        if (statsLongestLifetimeEl) statsLongestLifetimeEl.textContent = '-';
         statsTopColorsEl.innerHTML = '-';
         leaderboardTopEl.innerHTML = '-';
         return;
     }
     const totalPlacements = state.stats.totalPlacements || 0;
-    statsDisplay.textContent = `Placements: ${totalPlacements}`;
+    if (statsDisplay) statsDisplay.textContent = `Placements: ${totalPlacements}`;
     statsTotalEl.textContent = String(totalPlacements);
     statsTodayEl.textContent = String(state.stats.placementsToday || 0);
+    if (statsRetained1hEl) statsRetained1hEl.textContent = String(state.stats.pixelsUnchanged1h || 0);
+    if (statsRetained24hEl) statsRetained24hEl.textContent = String(state.stats.pixelsUnchanged24h || 0);
+    if (statsAvgLifetimeEl) statsAvgLifetimeEl.textContent = formatLifetimeMs(state.stats.averageLifetimeMs || 0);
+    if (statsLongestLifetimeEl) statsLongestLifetimeEl.textContent = formatLifetimeMs(state.stats.longestSurvivingMs || 0);
 
     if (state.stats.lastPlacementAt) {
         const d = new Date(state.stats.lastPlacementAt);
@@ -854,8 +903,9 @@ function resizeCanvas() {
 
     const worldSize = gridSize * basePixelSize;
     cameraZoom = clamp(cameraZoom, 0.5, 5);
-    cameraX = (canvas.width - worldSize) / 2;
-    cameraY = (canvas.height - worldSize) / 2;
+    // Center the world in the canvas viewport
+    cameraX = (canvas.width / cameraZoom - worldSize) / 2 * cameraZoom;
+    cameraY = (canvas.height / cameraZoom - worldSize) / 2 * cameraZoom;
     queueDraw();
     requestVisibleChunks();
 }
@@ -1020,11 +1070,11 @@ function handleServerMessage(data) {
             }
             if (data.nickname) {
                 state.nickname = data.nickname;
-                localStorage.setItem(STORAGE_NICKNAME, state.nickname);
-                updateNicknameDisplay();
+                updateAuthUI();
             }
-
-            let viewportConfigChanged = false;
+            if (data.type === 'auth_ok') {
+                state.authenticated = true;
+            }
             if (Number.isFinite(Number(data.gridSize)) && Number(data.gridSize) > 0) {
                 const nextGridSize = Number(data.gridSize);
                 if (nextGridSize !== gridSize) {
@@ -1044,7 +1094,7 @@ function handleServerMessage(data) {
             }
 
             state.cooldownBypass = Boolean(data.cooldownBypass);
-            state.authenticated = (data.type === 'auth_ok') ? true : state.authenticated;
+            if (data.type === 'auth_ok') updateAuthUI(); // sync body class after all state is set
             if (!state.cooldownBypass && Number.isFinite(Number(data.cooldownUntilMs))) {
                 const until = Number(data.cooldownUntilMs);
                 if (until > Date.now()) {
@@ -1236,10 +1286,10 @@ function handleServerMessage(data) {
         case 'nickname_changed':
             state.nickname = data.nickname;
             localStorage.setItem(STORAGE_NICKNAME, state.nickname);
-            updateNicknameDisplay();
+            updateAuthUI();
             if (data.stats) state.stats = data.stats;
             renderStats();
-            setConnState('ok', `Nickname changed (-10). Remaining: ${state.stats?.totalPlacements ?? 0}`);
+            setConnState('ok', `Nickname changed to '${data.nickname}'`);
             setTimeout(() => setConnState('ok', 'Connected'), 2200);
             break;
         case 'nickname_change_rejected':
@@ -1262,17 +1312,8 @@ function handleServerMessage(data) {
             state.authenticated = false;
             state.firebaseIdToken = '';
             localStorage.removeItem(STORAGE_FIREBASE_ID_TOKEN);
-            setConnState('warn', data.message || 'Sign in required');
-            promptForAuth().then(() => {
-                if (socketRef && socketRef.readyState === WebSocket.OPEN) {
-                    sendWS({
-                        type: 'auth',
-                        nickname: state.nickname,
-                        clientVersion: '1',
-                        firebaseIdToken: state.firebaseIdToken,
-                    });
-                }
-            });
+            updateAuthUI();
+            setConnState('warn', data.message || 'Sign in required (click Login)');
             break;
         default:
             break;
@@ -1299,13 +1340,16 @@ function connectWebSocket() {
         clearTimeout(connectTimeout);
         state.connected = true;
         connectWebSocket.attempts = 0;
-        setConnState('ok', 'Connected');
-        sendWS({
-            type: 'auth',
-            nickname: state.nickname,
-            clientVersion: '1',
-            firebaseIdToken: state.firebaseIdToken || localStorage.getItem(STORAGE_FIREBASE_ID_TOKEN) || '',
-        });
+        setConnState('ok', state.authenticated ? 'Connected' : 'Browsing');
+        const token = state.firebaseIdToken || localStorage.getItem(STORAGE_FIREBASE_ID_TOKEN) || '';
+        if (token) {
+            sendWS({
+                type: 'auth',
+                nickname: state.nickname,
+                clientVersion: '1',
+                firebaseIdToken: token,
+            });
+        }
         requestVisibleChunks();
         queueDraw();
     };
@@ -1332,6 +1376,10 @@ function connectWebSocket() {
     socket.onclose = () => {
         clearTimeout(connectTimeout);
         state.connected = false;
+        if (state.intentionalLogout) {
+            // Don't auto-reconnect; promptForAuth will handle it
+            return;
+        }
         setConnState('err', 'Disconnected (reconnecting...)');
         if (wsCandidates.length > 1) {
             state.wsEndpointIndex = (state.wsEndpointIndex + 1) % wsCandidates.length;
@@ -1454,6 +1502,53 @@ window.addEventListener('keydown', (e) => {
 statsToggleBtn.addEventListener('click', () => setDrawerOpen(true));
 statsCloseBtn.addEventListener('click', () => setDrawerOpen(false));
 drawerBackdrop.addEventListener('click', () => setDrawerOpen(false));
+
+const loginBtn = document.getElementById('loginBtn');
+const logoutBtn = document.getElementById('logoutBtn');
+
+loginBtn.addEventListener('click', () => {
+    promptForAuth().then(() => {
+        if (socketRef && socketRef.readyState === WebSocket.OPEN) {
+            sendWS({
+                type: 'auth',
+                nickname: state.nickname,
+                clientVersion: '1',
+                firebaseIdToken: state.firebaseIdToken,
+            });
+        } else {
+            socketRef = connectWebSocket();
+        }
+    });
+});
+
+logoutBtn.addEventListener('click', () => {
+    if (!confirm('Sign out?')) return;
+    // Clear all auth state and continue as guest
+    state.authenticated = false;
+    state.firebaseIdToken = '';
+    state.userId = '';
+    state.nickname = '';
+    state.email = '';
+    state.cooldownBypass = false;
+    cooldownTime = 0;
+    localStorage.removeItem(STORAGE_FIREBASE_ID_TOKEN);
+    localStorage.removeItem(STORAGE_USER_ID);
+    localStorage.removeItem(STORAGE_EMAIL);
+    localStorage.removeItem(STORAGE_IDENTITY_TOKEN);
+    localStorage.removeItem(STORAGE_COOLDOWN);
+    updateAuthUI();
+
+    if (socketRef) {
+        state.intentionalLogout = true;
+        socketRef.close();
+        setTimeout(() => {
+            state.intentionalLogout = false;
+            socketRef = connectWebSocket();
+        }, 50);
+    } else {
+        socketRef = connectWebSocket();
+    }
+});
 nicknameDisplay.addEventListener('click', () => {
     if (state.authenticated) {
         changeNickname();
@@ -1598,7 +1693,7 @@ let socketRef = null;
 
 (async () => {
     await ensureIdentity();
-    updateNicknameDisplay();
+    updateAuthUI();
     applyTheme();
     loadCooldownFromStorage();
     updateTimerUI();

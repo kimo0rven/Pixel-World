@@ -1,5 +1,22 @@
 const adminKeyInput = document.getElementById('adminKey');
 const userIdInput = document.getElementById('userId');
+
+// Theme toggle
+const adminThemeToggle = document.getElementById('adminThemeToggle');
+(function initAdminTheme() {
+    const saved = localStorage.getItem('admin_theme');
+    if (saved === 'dark') {
+        document.body.classList.add('dark-theme');
+        if (adminThemeToggle) adminThemeToggle.textContent = '\u2600\uFE0F';
+    }
+    if (adminThemeToggle) {
+        adminThemeToggle.addEventListener('click', () => {
+            const isDark = document.body.classList.toggle('dark-theme');
+            adminThemeToggle.textContent = isDark ? '\u2600\uFE0F' : '\uD83C\uDF19';
+            localStorage.setItem('admin_theme', isDark ? 'dark' : 'light');
+        });
+    }
+})();
 const cooldownUntilInput = document.getElementById('cooldownUntil');
 const clearCooldownInput = document.getElementById('clearCooldown');
 const applyCooldownBtn = document.getElementById('applyCooldown');
