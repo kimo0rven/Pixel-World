@@ -1,0 +1,126 @@
+:root {
+    --bg: #f5f4ef;
+    --card: #ffffff;
+    --text: #1b1f24;
+    --muted: #5b6470;
+    --border: #d8dde6;
+    --accent: #0d7a6f;
+    --danger: #ab1f2b;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+    color: var(--text);
+    background: radial-gradient(circle at 20% 10%, #fff5d6, transparent 35%),
+        radial-gradient(circle at 80% 0%, #d6f9ff, transparent 30%),
+        var(--bg);
+}
+
+.admin-wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 24px 16px 48px;
+}
+
+.hero h1 {
+    margin: 0;
+}
+
+.hero p {
+    margin-top: 8px;
+    color: var(--muted);
+}
+
+.card {
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+}
+
+.grid2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
+.inline-check {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 26px;
+}
+
+input {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 14px;
+}
+
+button {
+    border: none;
+    border-radius: 8px;
+    padding: 10px 14px;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+button.danger {
+    background: var(--danger);
+}
+
+.row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.list {
+    margin-top: 8px;
+    display: grid;
+    gap: 8px;
+}
+
+.list-item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    background: #fbfbfb;
+}
+
+pre {
+    margin: 0;
+    padding: 12px;
+    border-radius: 8px;
+    background: #0f1720;
+    color: #e6edf6;
+    min-height: 120px;
+    overflow: auto;
+}
+
+@media (max-width: 720px) {
+    .grid2 {
+        grid-template-columns: 1fr;
+    }
+
+    .inline-check {
+        margin-top: 0;
+    }
+}

@@ -12,17 +12,63 @@
     <h1>Pixel World</h1>
 
     <div class="controls">
-        <label class="pill" for="colorPicker" style="display:flex; align-items:center; gap:10px;">
-            Color:
-            <input type="color" id="colorPicker" value="#ff0000" style="height:30px;">
-        </label>
-        <div class="palette" id="palette"></div>
-        <span id="timerDisplay" class="pill">Ready to paint!</span>
-        <span id="connStatus" class="pill">Connecting...</span>
+        <span id="zoomDisplay" class="pill">Zoom: 1x</span>
+        <span id="timerDisplay" class="pill cooldown-display">Ready to paint!</span>
         <span id="statsDisplay" class="pill">Placements: 0</span>
+        <div class="pill" style="display:flex; align-items:center; gap:8px;">
+            <span>Color:</span>
+            <span id="colorPreview"
+                style="display:inline-block;width:22px;height:22px;border-radius:5px;border:2px solid #fff;flex-shrink:0;"></span>
+            <input type="color" id="colorPicker" style="display:none;">
+        </div>
+        <div class="palette" id="palette"></div>
+        <span id="nicknameDisplay" class="pill">User: -</span>
+        <span id="connStatus" class="pill">Connecting...</span>
+        <input type="checkbox" id="gridToggle" title="Toggle grid (G)" style="display:none;">
+        <label for="gridToggle" class="btn" title="Toggle grid (G)">Grid</label>
+        <button class="btn" id="themeToggle" title="Toggle dark/light mode">Theme</button>
         <button class="btn" id="statsToggleBtn" title="Open stats drawer">Stats</button>
         <button class="btn" id="resetView" title="Reset zoom/pan (R)">Reset</button>
+        <button class="btn" id="exportBtn" title="Export canvas as PNG">Export</button>
     </div>
+
+    <div class="coord-input-bar" id="coordInputBar" style="display:none;">
+        <input type="number" id="coordX" min="0" max="249" placeholder="X" title="X coordinate">
+        <input type="number" id="coordY" min="0" max="249" placeholder="Y" title="Y coordinate">
+        <button class="btn" id="placeCoordBtn">Place at Coords</button>
+    </div>
+
+    <div id="authModal" class="modal" aria-hidden="true">
+        <div class="modal-content">
+            <h2>Sign In Required</h2>
+            <p>Create an account or sign in with Email/Password to play.</p>
+            <input type="email" id="authEmailInput" placeholder="Email" autocomplete="email" />
+            <input type="password" id="authPasswordInput" placeholder="Password" autocomplete="current-password" />
+            <input type="text" id="authNicknameInput" placeholder="Nickname (3-20 chars)" maxlength="20" />
+            <div class="modal-buttons">
+                <button class="btn" id="authSignInBtn">Sign In</button>
+                <button class="btn" id="authRegisterBtn">Register</button>
+            </div>
+            <p style="text-align:center;margin-top:10px;font-size:0.85em">
+                <a href="#" id="authForgotPasswordLink">Forgot password?</a>
+            </p>
+            <p id="authStatusMsg" style="text-align:center;font-size:0.85em;min-height:1.2em"></p>
+        </div>
+    </div>
+    <div id="authBkg" class="modal-backdrop" aria-hidden="true"></div>
+
+    <div id="nicknameModal" class="modal" aria-hidden="true">
+        <div class="modal-content">
+            <h2>Enter Your Nickname</h2>
+            <p>Choose a nickname (3-20 characters, alphanumeric, spaces, and underscores)</p>
+            <input type="text" id="nicknameInput" placeholder="Your nickname" maxlength="20" />
+            <div class="modal-buttons">
+                <button class="btn" id="nicknameSaveBtn">Save</button>
+                <button class="btn" id="nicknameCancelBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <div id="nicknameBkg" class="modal-backdrop" aria-hidden="true"></div>
 
     <aside id="statsDrawer" class="stats-drawer" aria-hidden="true">
         <div class="stats-drawer-header">
@@ -34,8 +80,12 @@
             <div class="stats-row"><b>Today:</b> <span id="statsToday">0</span></div>
             <div class="stats-row"><b>Last placement:</b> <span id="statsLastPlacement">-</span></div>
             <div class="stats-row">
-                <b>Top colors:</b>
+                <b>Your top colors:</b>
                 <div id="statsTopColors" class="top-colors-list">-</div>
+            </div>
+            <div class="stats-row">
+                <b>Popular colors:</b>
+                <div id="colorLeaderboard" class="color-leaderboard-list">-</div>
             </div>
             <div class="stats-row">
                 <b>Leaderboard:</b>
@@ -49,10 +99,73 @@
         <canvas id="placeCanvas" width="800" height="800"></canvas>
         <div class="hud" id="hud">
             <div><b>Hover:</b> <span id="hoverCoords">-</span></div>
+            <div id="hoverUsernameRow" style="display:none;"><b>By:</b> <span id="hoverUsername">-</span></div>
+            <div id="hoverHistoryRow" style="display:none;"><span id="hoverHistory">-</span></div>
             <div><b>Cursor:</b> <span id="cursorCoords">-</span></div>
             <div style="opacity:0.85;">Drag to pan. Wheel to zoom.</div>
+            <button class="btn" id="placePixelBtn" style="margin-top:8px; width:100%;">Place Pixel</button>
+            <button class="btn" id="undoPixelBtn" style="margin-top:4px; width:100%; display:none;">↶ Undo
+                (30s)</button>
         </div>
     </div>
+
+    <!-- Audio element for notification sound -->
+    <audio id="placementSound" preload="auto">
+        <source src="data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAAB9AAACABAAZGF0YQIAAAAAAA=="
+            type="audio/wav">
+    </audio>
+
+    <!-- Keyboard shortcuts modal -->
+    <div id="shortcutsModal" class="modal" aria-hidden="true">
+        <div class="modal-content" style="max-width: 500px;">
+            <h2>Keyboard Shortcuts</h2>
+            <div class="shortcuts-list">
+                <div class="shortcut-item"><kbd>R</kbd> Reset zoom & pan</div>
+                <div class="shortcut-item"><kbd>G</kbd> Toggle grid</div>
+                <div class="shortcut-item"><kbd>?</kbd> Show this help</div>
+                <div class="shortcut-item"><kbd>Esc</kbd> Close drawer/modal</div>
+                <div class="shortcut-item"><kbd>Click</kbd> Place pixel or drag to pan</div>
+                <div class="shortcut-item"><kbd>Scroll</kbd> Zoom in/out</div>
+                <div class="shortcut-item"><kbd>Shift+Click</kbd> Pan without moving cursor</div>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn" id="shortcutsCloseBtn">Close</button>
+            </div>
+        </div>
+    </div>
+    <div id="shortcutsBkg" class="modal-backdrop" aria-hidden="true"></div>
+
+    <!-- User profile modal -->
+    <div id="profileModal" class="modal" aria-hidden="true">
+        <div class="modal-content">
+            <h2 id="profileUsername">User Profile</h2>
+            <div class="profile-content">
+                <div class="stat-row"><b>Total Placements:</b> <span id="profileTotal">0</span></div>
+                <div class="stat-row"><b>Today:</b> <span id="profileToday">0</span></div>
+                <div class="stat-row"><b>Last Placement:</b> <span id="profileLast">-</span></div>
+                <div class="stat-row">
+                    <b>Favorite Colors:</b>
+                    <div id="profileColors" style="margin-top:8px;">-</div>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn" id="profileCloseBtn">Close</button>
+            </div>
+        </div>
+    </div>
+    <div id="profileBkg" class="modal-backdrop" aria-hidden="true"></div>
+
+    <!-- Captcha modal for fast placements -->
+    <div id="captchaModal" class="modal" aria-hidden="true">
+        <div class="modal-content">
+            <h2>Too Many Placements</h2>
+            <p>You're placing pixels very quickly. Please wait a moment before your next placement.</p>
+            <div class="modal-buttons">
+                <button class="btn" id="captchaOkBtn">OK</button>
+            </div>
+        </div>
+    </div>
+    <div id="captchaBkg" class="modal-backdrop" aria-hidden="true"></div>
 
     <script src="static/js/app.js" defer></script>
 </body>

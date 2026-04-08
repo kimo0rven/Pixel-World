@@ -8,36 +8,42 @@ import (
 )
 
 type AppConfig struct {
-	GridSize              int
-	ChunkSize             int
-	CooldownDuration      time.Duration
-	AntiSpamWindow        time.Duration
-	MaxMessagesPerWindow  int
+	GridSize               int
+	ChunkSize              int
+	CooldownDuration       time.Duration
+	AntiSpamWindow         time.Duration
+	MaxMessagesPerWindow   int
 	MaxChunkRequestsPerSec int
-	SyncEnabled           bool
-	SyncInterval          time.Duration
-	SyncMinInterval       time.Duration
-	SyncMaxInterval       time.Duration
-	CooldownBypassUIDs    map[string]struct{}
-	AdminAPIKey           string
+	SyncEnabled            bool
+	SyncInterval           time.Duration
+	SyncMinInterval        time.Duration
+	SyncMaxInterval        time.Duration
+	PixelHistoryLimit      int
+	CooldownBypassUIDs     map[string]struct{}
+	AllowedOrigins         map[string]struct{}
+	AdminAPIKey            string
+	IdentitySecret         string
+	FirebaseWebAPIKey      string
 }
 
 func loadAppConfig() AppConfig {
 	cfg := AppConfig{
-		GridSize:              readIntEnv("GRID_SIZE", 250),
-		ChunkSize:             readIntEnv("CHUNK_SIZE", 25),
-		CooldownDuration:      readDurationEnv("COOLDOWN_DURATION", 5*time.Minute),
-		AntiSpamWindow:        readDurationEnv("ANTI_SPAM_WINDOW", 2*time.Second),
-		MaxMessagesPerWindow:  readIntEnv("MAX_MESSAGES_PER_WINDOW", 50),
+		GridSize:               readIntEnv("GRID_SIZE", 250),
+		ChunkSize:              readIntEnv("CHUNK_SIZE", 25),
+		CooldownDuration:       readDurationEnv("COOLDOWN_DURATION", 5*time.Minute),
+		AntiSpamWindow:         readDurationEnv("ANTI_SPAM_WINDOW", 2*time.Second),
+		MaxMessagesPerWindow:   readIntEnv("MAX_MESSAGES_PER_WINDOW", 50),
 		MaxChunkRequestsPerSec: readIntEnv("MAX_CHUNK_REQUESTS_PER_SEC", 4),
-		SyncEnabled:           readBoolEnv("SYNC_ENABLED", true),
-		SyncInterval:          readDurationEnv("SYNC_INTERVAL", 2*time.Second),
-		SyncMinInterval:       readDurationEnv("SYNC_MIN_INTERVAL", 500*time.Millisecond),
-		SyncMaxInterval:       readDurationEnv("SYNC_MAX_INTERVAL", 10*time.Second),
-		AdminAPIKey:           strings.TrimSpace(os.Getenv("ADMIN_API_KEY")),
-		CooldownBypassUIDs: map[string]struct{}{
-			"HIA7LC9I3oaTlcuXecOgXESyOx92": {},
-		},
+		SyncEnabled:            readBoolEnv("SYNC_ENABLED", true),
+		SyncInterval:           readDurationEnv("SYNC_INTERVAL", 2*time.Second),
+		SyncMinInterval:        readDurationEnv("SYNC_MIN_INTERVAL", 500*time.Millisecond),
+		SyncMaxInterval:        readDurationEnv("SYNC_MAX_INTERVAL", 10*time.Second),
+		PixelHistoryLimit:      readIntEnv("PIXEL_HISTORY_LIMIT", 8),
+		AdminAPIKey:            strings.TrimSpace(os.Getenv("ADMIN_API_KEY")),
+		IdentitySecret:         strings.TrimSpace(os.Getenv("IDENTITY_SECRET")),
+		FirebaseWebAPIKey:      strings.TrimSpace(os.Getenv("FIREBASE_WEB_API_KEY")),
+		CooldownBypassUIDs:     make(map[string]struct{}),
+		AllowedOrigins:         make(map[string]struct{}),
 	}
 
 	// Optional env override/addition: comma-separated list of UIDs that bypass cooldown.
@@ -48,6 +54,16 @@ func loadAppConfig() AppConfig {
 			continue
 		}
 		cfg.CooldownBypassUIDs[trimmed] = struct{}{}
+	}
+
+	// Optional env list of allowed websocket origins.
+	// Example: ALLOWED_ORIGINS="https://example.com,http://localhost:8080"
+	for _, origin := range strings.Split(strings.TrimSpace(os.Getenv("ALLOWED_ORIGINS")), ",") {
+		trimmed := strings.TrimSpace(origin)
+		if trimmed == "" {
+			continue
+		}
+		cfg.AllowedOrigins[trimmed] = struct{}{}
 	}
 
 	if cfg.GridSize <= 0 {
@@ -85,6 +101,9 @@ func loadAppConfig() AppConfig {
 	}
 	if cfg.SyncInterval > cfg.SyncMaxInterval {
 		cfg.SyncInterval = cfg.SyncMaxInterval
+	}
+	if cfg.PixelHistoryLimit <= 0 {
+		cfg.PixelHistoryLimit = 8
 	}
 
 	return cfg

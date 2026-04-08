@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel World Admin</title>
+    <link rel="stylesheet" href="static/css/admin.css">
+</head>
+
+<body>
+    <main class="admin-wrap">
+        <header class="hero">
+            <h1>Pixel World Admin Console</h1>
+            <p>Moderation, rollback, and suspicious activity monitoring.</p>
+        </header>
+
+        <section class="card">
+            <h2>API Access</h2>
+            <div class="grid2">
+                <label>
+                    Admin API key
+                    <input id="adminKey" type="password" placeholder="Enter X-Admin-Key" autocomplete="off">
+                </label>
+                <label>
+                    User ID
+                    <input id="userId" type="text" placeholder="user_abc123" autocomplete="off">
+                </label>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>Cooldown</h2>
+            <div class="grid2">
+                <label>
+                    Cooldown until (datetime)
+                    <input id="cooldownUntil" type="datetime-local">
+                </label>
+                <label class="inline-check">
+                    <input id="clearCooldown" type="checkbox">
+                    Clear cooldown
+                </label>
+            </div>
+            <button id="applyCooldown">Apply Cooldown</button>
+        </section>
+
+        <section class="card">
+            <h2>Mute / Freeze</h2>
+            <div class="grid2">
+                <label>
+                    Mute until
+                    <input id="muteUntil" type="datetime-local">
+                </label>
+                <label class="inline-check">
+                    <input id="clearMute" type="checkbox">
+                    Clear mute
+                </label>
+                <label>
+                    Freeze until
+                    <input id="freezeUntil" type="datetime-local">
+                </label>
+                <label class="inline-check">
+                    <input id="clearFreeze" type="checkbox">
+                    Clear freeze
+                </label>
+            </div>
+            <label>
+                Reason
+                <input id="moderationReason" type="text" placeholder="Reason shown in audit trail">
+            </label>
+            <button id="applyModeration">Apply Moderation</button>
+        </section>
+
+        <section class="card">
+            <h2>Rollback By Time Window</h2>
+            <div class="grid2">
+                <label>
+                    Start
+                    <input id="rollbackStart" type="datetime-local">
+                </label>
+                <label>
+                    End
+                    <input id="rollbackEnd" type="datetime-local">
+                </label>
+            </div>
+            <label>
+                Optional target user ID
+                <input id="rollbackUserId" type="text" placeholder="Leave empty for all users">
+            </label>
+            <button id="runRollback" class="danger">Run Rollback</button>
+        </section>
+
+        <section class="card">
+            <div class="row">
+                <h2>Suspicious Activity</h2>
+                <button id="refreshSuspicious">Refresh</button>
+            </div>
+            <div id="suspiciousList" class="list">No suspicious activity yet.</div>
+        </section>
+
+        <section class="card">
+            <h2>Results</h2>
+            <pre id="resultBox">Ready.</pre>
+        </section>
+    </main>
+
+    <script src="static/js/admin.js" defer></script>
+</body>
+
+</html>
