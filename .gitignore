@@ -1,0 +1,31 @@
+# Sensitive configuration / secrets
+.env
+serviceAccountKey.json
+
+# Go build/test outputs
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.prof
+bin/
+dist/
+build/
+
+# Logs / runtime artifacts
+*.log
+tmp/
+temp/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+

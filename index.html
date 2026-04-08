@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pixel World</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <h1>Pixel World</h1>
+
+    <div class="controls">
+        <label class="pill" for="colorPicker" style="display:flex; align-items:center; gap:10px;">
+            Color:
+            <input type="color" id="colorPicker" value="#ff0000" style="height:30px;">
+        </label>
+        <div class="palette" id="palette"></div>
+        <span id="timerDisplay" class="pill">Ready to paint!</span>
+        <span id="connStatus" class="pill">Connecting...</span>
+        <span id="statsDisplay" class="pill">Placements: 0</span>
+        <button class="btn" id="statsToggleBtn" title="Open stats drawer">Stats</button>
+        <button class="btn" id="resetView" title="Reset zoom/pan (R)">Reset</button>
+    </div>
+
+    <aside id="statsDrawer" class="stats-drawer" aria-hidden="true">
+        <div class="stats-drawer-header">
+            <h2>Stats & Leaderboard</h2>
+            <button class="btn" id="statsCloseBtn" title="Close stats drawer">Close</button>
+        </div>
+        <div class="stats-drawer-content">
+            <div class="stats-row"><b>Total:</b> <span id="statsTotal">0</span></div>
+            <div class="stats-row"><b>Today:</b> <span id="statsToday">0</span></div>
+            <div class="stats-row"><b>Last placement:</b> <span id="statsLastPlacement">-</span></div>
+            <div class="stats-row">
+                <b>Top colors:</b>
+                <div id="statsTopColors" class="top-colors-list">-</div>
+            </div>
+            <div class="stats-row">
+                <b>Leaderboard:</b>
+                <div id="leaderboardTop" class="leaderboard-list">-</div>
+            </div>
+        </div>
+    </aside>
+    <div id="drawerBackdrop" class="drawer-backdrop" aria-hidden="true"></div>
+
+    <div id="canvasWrap">
+        <canvas id="placeCanvas" width="800" height="800"></canvas>
+        <div class="hud" id="hud">
+            <div><b>Hover:</b> <span id="hoverCoords">-</span></div>
+            <div><b>Cursor:</b> <span id="cursorCoords">-</span></div>
+            <div style="opacity:0.85;">Drag to pan. Wheel to zoom.</div>
+        </div>
+    </div>
+
+    <script src="app.js" defer></script>
+</body>
+
+</html>
