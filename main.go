@@ -179,6 +179,7 @@ func main() {
 	loadDotEnv()
 	appConfig = loadAppConfig()
 
+	// 1. Handle Firebase Credentials
 	opt, err := firebaseCredentialOption()
 	if err != nil {
 		log.Fatal(err)
@@ -207,12 +208,25 @@ func main() {
 	loadInitialState()
 	loadUserStats()
 
+	// 2. Define API & WebSocket Routes
 	http.HandleFunc("/ws", handleConnections)
 	http.HandleFunc("/admin/cooldown", handleAdminCooldown)
 	go handleMessages()
 
-	log.Println("Go Server started on :8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	// 3. Serve Frontend Files (Fixes the 404)
+	// This serves index.html and static assets from the root directory
+	fs := http.FileServer(http.Dir(".")) 
+	http.Handle("/", fs)
+
+	// 4. Dynamic Port for Render
+	// Render assigns a port via the PORT env var; fallback to 8080 for local dev
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Printf("Pixel World Server started on port %s", port)
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatal(err)
 	}
 }
