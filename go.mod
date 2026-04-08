@@ -1,6 +1,6 @@
 module rplace-clone
 
-go 1.26.2
+go 1.26.0
 
 require (
 	cel.dev/expr v0.25.1 // indirect
