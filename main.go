@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"log"
 	"math"
 	"net/http"
@@ -131,6 +133,9 @@ var userStats = make(map[string]*UserStats)
 var statsMutex sync.RWMutex
 var appConfig AppConfig
 
+//go:embed index.html static/**
+var embeddedAssets embed.FS
+
 func loadDotEnv() {
 	b, err := os.ReadFile(".env")
 	if err != nil {
@@ -213,10 +218,12 @@ func main() {
 	http.HandleFunc("/admin/cooldown", handleAdminCooldown)
 	go handleMessages()
 
-	// 3. Serve Frontend Files (Fixes the 404)
-	// This serves index.html and static assets from the root directory
-	fs := http.FileServer(http.Dir(".")) 
-	http.Handle("/", fs)
+	// 3. Serve Frontend Files from embedded assets (deploy-safe)
+	assetsFS, err := fs.Sub(embeddedAssets, ".")
+	if err != nil {
+		log.Fatalf("failed to mount embedded assets: %v", err)
+	}
+	http.Handle("/", http.FileServer(http.FS(assetsFS)))
 
 	// 4. Dynamic Port for Render
 	// Render assigns a port via the PORT env var; fallback to 8080 for local dev
