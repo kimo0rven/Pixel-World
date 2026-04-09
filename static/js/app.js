@@ -8,7 +8,6 @@ let chunkSize = DEFAULT_CHUNK_SIZE;
 let basePixelSize = 6;
 
 const STORAGE_USER_ID = 'pixel_world_user_id';
-const STORAGE_NICKNAME = 'pixel_world_nickname';
 const STORAGE_COOLDOWN = 'pixel_world_cooldown_until';
 const STORAGE_THEME = 'pixel_world_theme';
 const STORAGE_IDENTITY_TOKEN = 'pixel_world_identity_token';
@@ -17,8 +16,20 @@ const STORAGE_EMAIL = 'pixel_world_email';
 
 const canvas = document.getElementById('placeCanvas');
 const ctx = canvas.getContext('2d', { alpha: false });
-const colorPicker = document.getElementById('colorPicker');
+const colorActionBtn = document.getElementById('colorActionBtn');
+const colorActionText = document.getElementById('colorActionText');
+const colorActionSwatch = document.getElementById('colorActionSwatch');
+const colorPanel = document.getElementById('colorPanel');
+const profileMenuWrap = document.getElementById('profileMenuWrap');
+const profileMenuBtn = document.getElementById('profileMenuBtn');
+const profileDropdown = document.getElementById('profileDropdown');
 const nicknameDisplay = document.getElementById('nicknameDisplay');
+const profileMenuPixels = document.getElementById('profileMenuPixels');
+const profileMenuLevel = document.getElementById('profileMenuLevel');
+const profileAvatarRing = document.getElementById('profileAvatarRing');
+const profileAvatarEmoji = document.getElementById('profileAvatarEmoji');
+const profileMenuLevelLabel = document.getElementById('profileMenuLevelLabel');
+const canvasTopStatus = document.getElementById('canvasTopStatus');
 const zoomDisplay = document.getElementById('zoomDisplay');
 const timerDisplay = document.getElementById('timerDisplay');
 const connStatus = document.getElementById('connStatus');
@@ -29,12 +40,8 @@ const statsCloseBtn = document.getElementById('statsCloseBtn');
 const drawerBackdrop = document.getElementById('drawerBackdrop');
 const authModal = document.getElementById('authModal');
 const authBkg = document.getElementById('authBkg');
-const authEmailInput = document.getElementById('authEmailInput');
-const authPasswordInput = document.getElementById('authPasswordInput');
-const authNicknameInput = document.getElementById('authNicknameInput');
-const authSignInBtn = document.getElementById('authSignInBtn');
-const authRegisterBtn = document.getElementById('authRegisterBtn');
-const authForgotPasswordLink = document.getElementById('authForgotPasswordLink');
+const authCloseBtn = document.getElementById('authCloseBtn');
+const authGoogleBtn = document.getElementById('authGoogleBtn');
 const authStatusMsg = document.getElementById('authStatusMsg');
 const nicknameModal = document.getElementById('nicknameModal');
 const nicknameBkg = document.getElementById('nicknameBkg');
@@ -54,7 +61,6 @@ const statsLongestLifetimeEl = document.getElementById('statsLongestLifetime');
 const statsTopColorsEl = document.getElementById('statsTopColors');
 const colorLeaderboardEl = document.getElementById('colorLeaderboard');
 const leaderboardTopEl = document.getElementById('leaderboardTop');
-const resetView = document.getElementById('resetView');
 const hoverCoordsEl = document.getElementById('hoverCoords');
 const cursorCoordsEl = document.getElementById('cursorCoords');
 const hoverUsernameRow = document.getElementById('hoverUsernameRow');
@@ -64,13 +70,14 @@ const hoverHistoryEl = document.getElementById('hoverHistory');
 const paletteEl = document.getElementById('palette');
 const gridToggle = document.getElementById('gridToggle');
 const themeToggle = document.getElementById('themeToggle');
-const coordInputBar = document.getElementById('coordInputBar');
 const coordX = document.getElementById('coordX');
 const coordY = document.getElementById('coordY');
 const placeCoordBtn = document.getElementById('placeCoordBtn');
 const placementSound = document.getElementById('placementSound');
 const placePixelBtn = document.getElementById('placePixelBtn');
 const undoPixelBtn = document.getElementById('undoPixelBtn');
+const redoPixelBtn = document.getElementById('redoPixelBtn');
+const eyedropperBtn = document.getElementById('eyedropperBtn');
 const shortcutsModal = document.getElementById('shortcutsModal');
 const shortcutsBkg = document.getElementById('shortcutsBkg');
 const shortcutsCloseBtn = document.getElementById('shortcutsCloseBtn');
@@ -82,13 +89,13 @@ const profileTotalEl = document.getElementById('profileTotal');
 const profileTodayEl = document.getElementById('profileToday');
 const profileLastEl = document.getElementById('profileLast');
 const profileColorsEl = document.getElementById('profileColors');
+const hud = document.getElementById('hud');
 
 const pixelData = {}; // Now stores {color, username, placedAt}
 const cellHistoryCache = {};
 const requestedChunkSet = new Set();
 let hoverCell = null;
 let hoverUsername = null;
-let hoverHistory = null;
 let lastHistoryRequestKey = '';
 let dpr = Math.max(1, window.devicePixelRatio || 1);
 let cameraZoom = 1;
@@ -101,8 +108,12 @@ let lastPlacementTimes = []; // Track placement times for captcha detection
 let ownPixels = new Set(); // Track pixels placed by user (format: "x_y")
 let lastPlacedPixel = null; // For undo functionality (format: {x, y, time})
 let lastPlacedPixelTime = null;
+let pendingUndoSnapshot = null; // { x, y, color }
+let lastUndonePixel = null; // { x, y, color }
 let lastOptimisticPixel = null; // { key, prev } — used to revert on rejection
-let showGrid = true; // Toggle for grid display
+let showGrid = false; // Toggle for grid display
+let eyedropperMode = false;
+let firebaseClientAuth = null;
 
 const state = {
     connected: false,
@@ -114,6 +125,8 @@ const state = {
     firebaseIdToken: localStorage.getItem(STORAGE_FIREBASE_ID_TOKEN) || '',
     email: localStorage.getItem(STORAGE_EMAIL) || '',
     firebaseWebApiKey: '',
+    firebaseProjectId: '',
+    firebaseAuthDomain: '',
     stats: null,
     leaderboard: [],
     colorStats: {},
@@ -139,13 +152,27 @@ function normalizeNickname(name) {
     return trimmed.slice(0, 20);
 }
 
+function generateRandomNickname() {
+    const adjectives = ['Swift', 'Bright', 'Cosmic', 'Pixel', 'Neon', 'Crimson', 'Aqua', 'Solar', 'Nova', 'Lucky'];
+    const nouns = ['Painter', 'Brush', 'Canvas', 'Comet', 'Falcon', 'Otter', 'Wolf', 'Panda', 'Maker', 'Rider'];
+    const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const noun = nouns[Math.floor(Math.random() * nouns.length)];
+    const digits = String(Math.floor(100 + Math.random() * 900));
+    return normalizeNickname(`${adj}${noun}${digits}`);
+}
+
 function applyTheme() {
-    if (state.theme === 'light') {
-        document.body.classList.add('light-theme');
-        if (themeToggle) themeToggle.textContent = '\uD83C\uDF19'; // 🌙 = switch to dark
-    } else {
-        document.body.classList.remove('light-theme');
-        if (themeToggle) themeToggle.textContent = '\u2600\uFE0F'; // ☀️ = switch to light
+    const isLight = state.theme === 'light';
+    document.body.classList.toggle('light-theme', isLight);
+    const icon = document.getElementById('themeToggleIcon');
+    if (icon) {
+        if (isLight) {
+            // show moon icon (click to go dark)
+            icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+        } else {
+            // show sun icon (click to go light)
+            icon.innerHTML = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
+        }
     }
     // Sync grid button active state
     const gridLabel = document.getElementById('gridToggleLabel');
@@ -184,7 +211,81 @@ function playPlacementSound() {
 }
 
 function updateZoomDisplay() {
-    zoomDisplay.textContent = `Zoom: ${cameraZoom.toFixed(1)}x`;
+    if (zoomDisplay) {
+        zoomDisplay.textContent = `Zoom: ${cameraZoom.toFixed(1)}x`;
+    }
+    updateCanvasTopStatus();
+}
+
+function formatZoomLabel() {
+    const fixed = cameraZoom.toFixed(1);
+    return fixed.endsWith('.0') ? `${fixed.slice(0, -2)}x` : `${fixed}x`;
+}
+
+function updateCanvasTopStatus() {
+    if (!canvasTopStatus) return;
+    const coords = hoverCell ? `(${hoverCell.x}, ${hoverCell.y})` : '(-, -)';
+    canvasTopStatus.textContent = `${coords} ${formatZoomLabel()}`;
+}
+
+function updateColorActionLabel() {
+    if (!colorActionText) return;
+    if (!state.authenticated || state.cooldownBypass) {
+        colorActionText.textContent = 'Paint';
+        return;
+    }
+    const remainingMs = cooldownTime - Date.now();
+    if (remainingMs > 0) {
+        const seconds = Math.max(1, Math.ceil(remainingMs / 1000));
+        colorActionText.textContent = `Paint (${seconds}s)`;
+        return;
+    }
+    colorActionText.textContent = 'Paint';
+}
+
+function setColorPanelOpen(isOpen) {
+    if (!colorPanel) return;
+    const nextOpen = Boolean(isOpen) && state.authenticated;
+    colorPanel.classList.toggle('open', nextOpen);
+    colorPanel.setAttribute('aria-hidden', nextOpen ? 'false' : 'true');
+}
+
+function setProfileMenuOpen(isOpen) {
+    if (!profileDropdown || !profileMenuBtn) return;
+    const nextOpen = Boolean(isOpen) && state.authenticated;
+    profileDropdown.classList.toggle('open', nextOpen);
+    profileDropdown.setAttribute('aria-hidden', nextOpen ? 'false' : 'true');
+    profileMenuBtn.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+}
+
+function updateProfileMenuSummary() {
+    const total = Number(state.stats?.totalPlacements || 0);
+    const level = Number(state.stats?.level || 0) || Math.max(1, Math.floor(total / 25) + 1);
+    const levelExpCurrent = Number(state.stats?.levelExpCurrent);
+    const levelExpRequired = Number(state.stats?.levelExpRequired);
+    const progressPct = Number.isFinite(levelExpCurrent) && Number.isFinite(levelExpRequired) && levelExpRequired > 0
+        ? Math.max(0, Math.min(100, (levelExpCurrent / levelExpRequired) * 100))
+        : Math.max(0, Math.min(100, ((total % 25) / 25) * 100));
+
+    if (profileMenuPixels) profileMenuPixels.textContent = String(total);
+    if (profileMenuLevel) profileMenuLevel.textContent = String(level);
+    const levelPctEl = document.getElementById('profileMenuLevelPct');
+    if (levelPctEl) {
+        levelPctEl.textContent = `(${Math.round(progressPct)}%)`;
+    }
+    if (profileMenuLevelLabel) {
+        profileMenuLevelLabel.textContent = String(level);
+    }
+    if (profileAvatarRing) {
+        profileAvatarRing.style.setProperty('--xp-progress', `${progressPct}%`);
+    }
+    if (profileAvatarEmoji) {
+        profileAvatarEmoji.textContent = '🤖';
+    }
+    if (profileMenuBtn) {
+        const label = state.authenticated ? `Profile menu for ${state.nickname || 'User'}` : 'Login';
+        profileMenuBtn.setAttribute('aria-label', label);
+    }
 }
 
 function checkFastPlacement() {
@@ -308,6 +409,7 @@ function showProfileModal(userID) {
 }
 
 function updatePlacePixelButtonState() {
+    if (!placePixelBtn) return;
     const now = Date.now();
     const timeUntilReady = cooldownTime - now;
 
@@ -353,74 +455,70 @@ function requestUndoPixel() {
         return;
     }
 
+    const coordKey = `${lastPlacedPixel.x}_${lastPlacedPixel.y}`;
+    const pixelInfo = pixelData[coordKey];
+    const rawColor = pixelInfo ? (typeof pixelInfo === 'string' ? pixelInfo : pixelInfo.color) : '';
+    const normalizedColor = rawColor
+        ? (rawColor.startsWith('#') ? rawColor : `#${rawColor}`)
+        : state.selectedColor;
+    pendingUndoSnapshot = {
+        x: lastPlacedPixel.x,
+        y: lastPlacedPixel.y,
+        color: normalizedColor,
+    };
+
     sendWS({
         type: 'undo_pixel',
         pixel: lastPlacedPixel,
     });
 }
 
-function promptForNickname() {
-    return new Promise((resolve) => {
-        const handleSave = () => {
-            const entered = nicknameInput.value || '';
-            const nickname = normalizeNickname(entered) || 'PixelArtist';
-            
-            // Hide modal
-            nicknameModal.classList.remove('show');
-            nicknameBkg.classList.remove('show');
-            nicknameModal.setAttribute('aria-hidden', 'true');
-            nicknameBkg.setAttribute('aria-hidden', 'true');
-            
-            // Clean up listeners
-            nicknameSaveBtn.removeEventListener('click', handleSave);
-            nicknameCancelBtn.removeEventListener('click', handleCancel);
-            nicknameInput.removeEventListener('keypress', handleEnter);
-            
-            // Update state and display
-            state.nickname = nickname;
-            updateAuthUI();
-            
-            resolve(nickname);
-        };
-        
-        const handleCancel = () => {
-            // Hide modal
-            nicknameModal.classList.remove('show');
-            nicknameBkg.classList.remove('show');
-            nicknameModal.setAttribute('aria-hidden', 'true');
-            nicknameBkg.setAttribute('aria-hidden', 'true');
-            
-            // Clean up listeners
-            nicknameSaveBtn.removeEventListener('click', handleSave);
-            nicknameCancelBtn.removeEventListener('click', handleCancel);
-            nicknameInput.removeEventListener('keypress', handleEnter);
-            
-            resolve(null);
-        };
-        
-        const handleEnter = (e) => {
-            if (e.key === 'Enter') handleSave();
-        };
-        
-        // Update modal for new nickname (not change)
-        const h2 = nicknameModal.querySelector('h2');
-        const p = nicknameModal.querySelector('p');
-        h2.textContent = 'Enter Your Nickname';
-        p.textContent = 'Choose a nickname (3-20 characters, alphanumeric, spaces, and underscores)';
-        
-        // Show modal
-        nicknameModal.classList.add('show');
-        nicknameBkg.classList.add('show');
-        nicknameModal.setAttribute('aria-hidden', 'false');
-        nicknameBkg.setAttribute('aria-hidden', 'false');
-        nicknameInput.value = '';
-        nicknameInput.focus();
-        
-        // Add listeners
-        nicknameSaveBtn.addEventListener('click', handleSave);
-        nicknameCancelBtn.addEventListener('click', handleCancel);
-        nicknameInput.addEventListener('keypress', handleEnter);
+function requestRedoPixel() {
+    if (!lastUndonePixel) return;
+    if (!state.authenticated) return;
+    if (!state.cooldownBypass && Date.now() < cooldownTime) return;
+
+    sendWS({
+        type: 'place_pixel',
+        pixel: {
+            x: Math.floor(lastUndonePixel.x),
+            y: Math.floor(lastUndonePixel.y),
+            color: lastUndonePixel.color,
+        },
     });
+    lastUndonePixel = null;
+    if (redoPixelBtn) {
+        redoPixelBtn.disabled = true;
+    }
+}
+
+function setEyedropperMode(enabled) {
+    eyedropperMode = Boolean(enabled);
+    if (eyedropperBtn) {
+        eyedropperBtn.classList.toggle('active', eyedropperMode);
+        eyedropperBtn.setAttribute('aria-pressed', eyedropperMode ? 'true' : 'false');
+    }
+    canvas.style.cursor = eyedropperMode ? 'copy' : 'crosshair';
+}
+
+function sampleColorFromCell(cell) {
+    if (!cell) {
+        setConnState('warn', 'Move cursor over a painted pixel first');
+        setTimeout(() => setConnState('ok', state.authenticated ? 'Connected' : 'Browsing'), 1200);
+        return;
+    }
+    const key = `${cell.x}_${cell.y}`;
+    const pixelInfo = pixelData[key];
+    const raw = pixelInfo ? (typeof pixelInfo === 'string' ? pixelInfo : pixelInfo.color) : '';
+    if (!raw) {
+        setConnState('warn', 'No painted pixel at that position');
+        setTimeout(() => setConnState('ok', state.authenticated ? 'Connected' : 'Browsing'), 1200);
+        return;
+    }
+
+    const sampled = raw.startsWith('#') ? raw.toLowerCase() : `#${String(raw).toLowerCase()}`;
+    selectColor(sampled);
+    setEyedropperMode(false);
 }
 
 function changeNickname() {
@@ -513,43 +611,56 @@ async function fetchAppConfig() {
     }
     const data = await response.json();
     state.firebaseWebApiKey = (data.firebaseWebApiKey || '').trim();
+    state.firebaseProjectId = (data.firebaseProjectId || '').trim();
+    state.firebaseAuthDomain = (data.firebaseAuthDomain || '').trim();
     if (!state.firebaseWebApiKey) {
         throw new Error('FIREBASE_WEB_API_KEY is not configured on server');
     }
 }
 
-async function firebaseSendPasswordReset(email) {
-    const url = `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${encodeURIComponent(state.firebaseWebApiKey)}`;
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestType: 'PASSWORD_RESET', email }),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || data.error) {
-        const msg = data?.error?.message || 'Failed to send reset email';
-        throw new Error(msg);
+async function ensureFirebaseAuthClient() {
+    if (firebaseClientAuth) return firebaseClientAuth;
+    if (!state.firebaseWebApiKey) {
+        await fetchAppConfig();
     }
+    if (!window.firebase || !window.firebase.initializeApp || !window.firebase.auth) {
+        throw new Error('Firebase Auth SDK failed to load. Check network/CDN access.');
+    }
+
+    const authDomain = state.firebaseAuthDomain || (state.firebaseProjectId ? `${state.firebaseProjectId}.firebaseapp.com` : '');
+    if (!authDomain) {
+        throw new Error('Firebase auth domain is not configured. Set FIREBASE_AUTH_DOMAIN or FIREBASE_PROJECT_ID.');
+    }
+
+    const appConfig = {
+        apiKey: state.firebaseWebApiKey,
+        authDomain,
+    };
+
+    if (window.firebase.apps && window.firebase.apps.length > 0) {
+        firebaseClientAuth = window.firebase.auth();
+    } else {
+        window.firebase.initializeApp(appConfig);
+        firebaseClientAuth = window.firebase.auth();
+    }
+    return firebaseClientAuth;
 }
 
-async function firebaseEmailPasswordAuth(mode, email, password) {
-    const endpoint = mode === 'register' ? 'signUp' : 'signInWithPassword';
-    const url = `https://identitytoolkit.googleapis.com/v1/accounts:${endpoint}?key=${encodeURIComponent(state.firebaseWebApiKey)}`;
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            email,
-            password,
-            returnSecureToken: true,
-        }),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || data.error) {
-        const msg = data?.error?.message || 'Authentication failed';
-        throw new Error(msg);
+async function firebaseGoogleAuth() {
+    const auth = await ensureFirebaseAuthClient();
+    const provider = new window.firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    const result = await auth.signInWithPopup(provider);
+    const user = result?.user || auth.currentUser;
+    if (!user) {
+        throw new Error('Google sign-in did not return a user.');
     }
-    return data;
+    const idToken = await user.getIdToken(true);
+    return {
+        idToken,
+        email: user.email || '',
+        displayName: user.displayName || '',
+    };
 }
 
 function promptForAuth() {
@@ -568,56 +679,30 @@ function promptForAuth() {
             }
         };
 
-        const doAuth = async (mode) => {
+        const doGoogleAuth = async () => {
             try {
-                const email = (authEmailInput.value || '').trim();
-                const password = authPasswordInput.value || '';
-                const nicknameCandidate = normalizeNickname(authNicknameInput.value || '');
-                if (!email || !password) {
-                    setAuthStatus('warn', 'Email and password are required.');
-                    return;
-                }
-                const result = await firebaseEmailPasswordAuth(mode, email, password);
+                const result = await firebaseGoogleAuth();
                 state.firebaseIdToken = result.idToken || '';
-                state.email = result.email || email;
+                state.email = result.email || '';
                 localStorage.setItem(STORAGE_FIREBASE_ID_TOKEN, state.firebaseIdToken);
-                localStorage.setItem(STORAGE_EMAIL, state.email);
-                // Only pass candidate nickname for registration; server decides final value
-                if (mode === 'register' && nicknameCandidate) {
-                    state.nickname = nicknameCandidate;
+                if (state.email) {
+                    localStorage.setItem(STORAGE_EMAIL, state.email);
+                }
+                if (!state.nickname) {
+                    state.nickname = generateRandomNickname();
                 }
                 setAuthStatus('', '');
                 hideModal(authModal, authBkg);
                 resolve();
             } catch (err) {
-                setAuthStatus('warn', `Auth failed: ${err.message || err}`);
+                setAuthStatus('warn', `Google sign-in failed: ${err.message || err}`);
             }
         };
 
-        authSignInBtn.onclick = () => doAuth('signin');
-        authRegisterBtn.onclick = () => doAuth('register');
-        authForgotPasswordLink.onclick = async (e) => {
-            e.preventDefault();
-            const email = (authEmailInput.value || '').trim();
-            if (!email) {
-                setAuthStatus('warn', 'Enter your email above first.');
-                return;
-            }
-            try {
-                if (!state.firebaseWebApiKey) await fetchAppConfig();
-                await firebaseSendPasswordReset(email);
-                setAuthStatus('ok', `Reset email sent to ${email}`);
-            } catch (err) {
-                setAuthStatus('warn', err.message || 'Failed to send reset email');
-            }
-        };
-
-        authEmailInput.value = state.email || '';
-        authPasswordInput.value = '';
-        authNicknameInput.value = state.nickname || '';
+        authGoogleBtn.onclick = doGoogleAuth;
         setAuthStatus('', '');
         showModal(authModal, authBkg);
-        authEmailInput.focus();
+        if (authGoogleBtn && authGoogleBtn.focus) authGoogleBtn.focus();
     });
 }
 
@@ -661,9 +746,20 @@ function fmtAgo(ts) {
     return `${Math.round(elapsed / 86400000)}d ago`;
 }
 
+function updateHudVisibility() {
+    if (!hud) return;
+    const hasVisibleChild = Array.from(hud.children).some((child) => {
+        if (!(child instanceof HTMLElement)) return false;
+        return window.getComputedStyle(child).display !== 'none';
+    });
+    hud.style.display = hasVisibleChild ? '' : 'none';
+}
+
 function updateHoverHistoryText(cell) {
+    if (!hoverHistoryRow || !hoverHistoryEl) return;
     if (!cell) {
         hoverHistoryRow.style.display = 'none';
+        updateHudVisibility();
         return;
     }
     const key = `${cell.x}_${cell.y}`;
@@ -673,9 +769,11 @@ function updateHoverHistoryText(cell) {
         if (pixelInfo && pixelInfo.placedAt) {
             hoverHistoryEl.textContent = `Last edit ${fmtAgo(pixelInfo.placedAt)}`;
             hoverHistoryRow.style.display = 'block';
+            updateHudVisibility();
             return;
         }
         hoverHistoryRow.style.display = 'none';
+        updateHudVisibility();
         return;
     }
     const lines = history.slice(-3).reverse().map((item) => {
@@ -686,6 +784,7 @@ function updateHoverHistoryText(cell) {
     });
     hoverHistoryEl.textContent = lines.join(' | ');
     hoverHistoryRow.style.display = 'block';
+    updateHudVisibility();
 }
 
 function isLightMode() {
@@ -696,23 +795,31 @@ function updateTimerUI() {
     const now = Date.now();
     const lightMode = isLightMode();
     if (state.cooldownBypass) {
-        timerDisplay.textContent = 'Cooldown: bypass';
-        timerDisplay.style.color = lightMode ? '#0b0f17' : '#9ee7ff';
+        if (timerDisplay) {
+            timerDisplay.textContent = 'Cooldown: bypass';
+            timerDisplay.style.color = lightMode ? '#0b0f17' : '#9ee7ff';
+        }
         updatePlacePixelButtonState();
+        updateColorActionLabel();
         return requestAnimationFrame(updateTimerUI);
     }
     if (now < cooldownTime) {
-        timerDisplay.textContent = `Cooldown: ${fmtMs(cooldownTime - now)}`;
-        timerDisplay.style.color = lightMode ? '#8b0000' : '#ff6b6b';
+        if (timerDisplay) {
+            timerDisplay.textContent = `Cooldown: ${fmtMs(cooldownTime - now)}`;
+            timerDisplay.style.color = lightMode ? '#8b0000' : '#ff6b6b';
+        }
     } else {
         if (cooldownTime !== 0) {
             cooldownTime = 0;
             saveCooldown();
         }
-        timerDisplay.textContent = 'Ready to paint!';
-        timerDisplay.style.color = lightMode ? '#1a7026' : '#44ff88';
+        if (timerDisplay) {
+            timerDisplay.textContent = 'Ready to paint!';
+            timerDisplay.style.color = lightMode ? '#1a7026' : '#44ff88';
+        }
     }
     updatePlacePixelButtonState();
+    updateColorActionLabel();
     requestAnimationFrame(updateTimerUI);
 }
 
@@ -736,12 +843,18 @@ function setConnState(kind, text) {
 }
 
 function updateNicknameDisplay() {
-    nicknameDisplay.textContent = `User: ${state.nickname || '-'}`;
+    nicknameDisplay.textContent = state.nickname || '-';
+    updateProfileMenuSummary();
 }
 
 function updateAuthUI() {
     document.body.classList.toggle('is-authenticated', Boolean(state.authenticated));
     updateNicknameDisplay();
+    updateColorActionLabel();
+    if (!state.authenticated) {
+        setColorPanelOpen(false);
+        setProfileMenuOpen(false);
+    }
     if (state.connected) {
         setConnState('ok', state.authenticated ? 'Connected' : 'Browsing');
     }
@@ -797,6 +910,7 @@ function renderStats() {
     } else {
         statsLastPlacementEl.textContent = '-';
     }
+    updateProfileMenuSummary();
 
     const colorCounts = state.stats.colorCounts || {};
     const topColors = Object.entries(colorCounts)
@@ -882,12 +996,11 @@ function clamp(v, a, b) {
 
 function resizeCanvas() {
     dpr = Math.max(1, window.devicePixelRatio || 1);
-    const controls = document.querySelector('.controls');
     const padding = 12;
     const isMobile = window.matchMedia('(max-width: 900px)').matches;
     const scale = isMobile ? 2.2 : 4;
     const availW = window.innerWidth - padding * 2;
-    const availH = window.innerHeight - controls.offsetHeight - padding * 2 - 20;
+    const availH = window.innerHeight - padding * 2;
     const sideBase = Math.max(520, Math.min(availW, availH));
     const side = sideBase * scale;
 
@@ -960,43 +1073,6 @@ function getWorldCenter() {
     };
 }
 
-function positionUndoButtonNearPixel(pixelX, pixelY) {
-    // Convert grid coordinates to screen coordinates
-    const worldX = pixelX * basePixelSize;
-    const worldY = pixelY * basePixelSize;
-    const sx = worldX * cameraZoom + cameraX;
-    const sy = worldY * cameraZoom + cameraY;
-    
-    const rect = canvas.getBoundingClientRect();
-    let clientX = (sx / dpr) + rect.left;
-    let clientY = (sy / dpr) + rect.top;
-    
-    // Add some offset so the button isn't exactly on the pixel
-    clientX += 20;
-    clientY += 20;
-    
-    // Keep button within viewport
-    const buttonWidth = 150;
-    const buttonHeight = 40;
-    if (clientX + buttonWidth > window.innerWidth) {
-        clientX = window.innerWidth - buttonWidth - 10;
-    }
-    if (clientY + buttonHeight > window.innerHeight) {
-        clientY = window.innerHeight - buttonHeight - 10;
-    }
-    if (clientX < 0) clientX = 10;
-    if (clientY < 0) clientY = 10;
-    
-    // Position the button absolutely on the page
-    undoPixelBtn.style.position = 'fixed';
-    undoPixelBtn.style.left = clientX + 'px';
-    undoPixelBtn.style.top = clientY + 'px';
-    undoPixelBtn.style.width = 'auto';
-    undoPixelBtn.style.padding = '8px 12px';
-
-    debugLog('Undo button positioned at:', { clientX, clientY, pixelX, pixelY });
-}
-
 function getCellFromClient(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
     const sx = (clientX - rect.left) * dpr;
@@ -1041,7 +1117,6 @@ function draw() {
         const pixelInfo = pixelData[key];
         const rawColor = typeof pixelInfo === 'string' ? pixelInfo : pixelInfo.color;
         const color = rawColor && !rawColor.startsWith('#') ? '#' + rawColor : rawColor;
-        const isOwnPixel = ownPixels.has(key);
         
         ctx.fillStyle = color;
         ctx.fillRect(Number(x) * basePixelSize, Number(y) * basePixelSize, basePixelSize, basePixelSize);
@@ -1186,26 +1261,25 @@ function handleServerMessage(data) {
                 // Track for undo
                 lastPlacedPixel = { x: data.pixel.x, y: data.pixel.y };
                 lastPlacedPixelTime = now;
+                pendingUndoSnapshot = null;
+                lastUndonePixel = null;
                 
-                // Position and show undo button near the placed pixel
+                // Show undo button in dock
                 if (undoPixelBtn) {
-                    positionUndoButtonNearPixel(data.pixel.x, data.pixel.y);
-                    undoPixelBtn.style.display = 'block';
-                    undoPixelBtn.style.pointerEvents = 'auto';
-                    undoPixelBtn.hidden = false;
-                    debugLog('Undo button shown at pixel location');
+                    undoPixelBtn.disabled = false;
+                    debugLog('Undo button shown in dock');
                 } else {
                     debugError('undoPixelBtn not found!');
+                }
+                if (redoPixelBtn) {
+                    redoPixelBtn.disabled = true;
                 }
                 
                 // Auto-hide undo button after 30 seconds
                 setTimeout(() => {
                     if (Date.now() - lastPlacedPixelTime > 30000) {
                         if (undoPixelBtn) {
-                            undoPixelBtn.style.display = 'none';
-                            // Reset to HUD position
-                            undoPixelBtn.style.position = 'static';
-                            undoPixelBtn.style.width = '100%';
+                            undoPixelBtn.disabled = true;
                         }
                     }
                 }, 30000);
@@ -1271,9 +1345,14 @@ function handleServerMessage(data) {
             break;
         case 'undo_success':
             // Clear undo tracking after successful undo
+            lastUndonePixel = pendingUndoSnapshot;
+            pendingUndoSnapshot = null;
             lastPlacedPixel = null;
             lastPlacedPixelTime = null;
-            undoPixelBtn.style.display = 'none';
+            if (undoPixelBtn) undoPixelBtn.disabled = true;
+            if (redoPixelBtn && lastUndonePixel) {
+                redoPixelBtn.disabled = false;
+            }
             setConnState('ok', 'Pixel undone!');
             setTimeout(() => setConnState('ok', 'Connected'), 1500);
             break;
@@ -1285,7 +1364,6 @@ function handleServerMessage(data) {
             break;
         case 'nickname_changed':
             state.nickname = data.nickname;
-            localStorage.setItem(STORAGE_NICKNAME, state.nickname);
             updateAuthUI();
             if (data.stats) state.stats = data.stats;
             renderStats();
@@ -1397,6 +1475,10 @@ function connectWebSocket() {
 
 function placePixel(cell) {
     if (!cell) return;
+    if (eyedropperMode) {
+        sampleColorFromCell(cell);
+        return;
+    }
     if (!state.authenticated) return;
     if (!state.cooldownBypass && Date.now() < cooldownTime) return;
     
@@ -1420,49 +1502,105 @@ function placePixel(cell) {
 }
 
 const palette = [
-    '#6d001a', '#be0039', '#ff4500', '#ffa800', '#ffd635', '#fff8b8',
-    '#00a368', '#00cc78', '#7eed56', '#00756f', '#009eaa', '#00ccc0',
-    '#2450a4', '#3690ea', '#51e9f4', '#493ac1', '#6a5cff', '#94b3ff',
-    '#811e9f', '#b44ac0', '#e4abff', '#de107f', '#ff3881', '#ff99aa',
-    '#6d482f', '#9c6926', '#ffb470', '#000000', '#515252', '#898d90',
-    '#d4d7d9', '#ffffff',
+    { hex: '#6d001a', name: 'Dark Maroon' },
+    { hex: '#be0039', name: 'Crimson' },
+    { hex: '#ff4500', name: 'Vermilion' },
+    { hex: '#ffa800', name: 'Amber' },
+    { hex: '#ffd635', name: 'Sunflower' },
+    { hex: '#fff8b8', name: 'Cream' },
+    { hex: '#00a368', name: 'Forest' },
+    { hex: '#00cc78', name: 'Emerald' },
+    { hex: '#7eed56', name: 'Lime' },
+    { hex: '#00756f', name: 'Deep Teal' },
+    { hex: '#009eaa', name: 'Teal' },
+    { hex: '#00ccc0', name: 'Aqua' },
+    { hex: '#2450a4', name: 'Navy' },
+    { hex: '#3690ea', name: 'Azure' },
+    { hex: '#51e9f4', name: 'Sky' },
+    { hex: '#493ac1', name: 'Indigo' },
+    { hex: '#6a5cff', name: 'Periwinkle' },
+    { hex: '#94b3ff', name: 'Lavender' },
+    { hex: '#811e9f', name: 'Royal Purple' },
+    { hex: '#b44ac0', name: 'Orchid' },
+    { hex: '#e4abff', name: 'Lilac' },
+    { hex: '#de107f', name: 'Magenta' },
+    { hex: '#ff3881', name: 'Hot Pink' },
+    { hex: '#ff99aa', name: 'Blush' },
+    { hex: '#6d482f', name: 'Walnut' },
+    { hex: '#9c6926', name: 'Bronze' },
+    { hex: '#ffb470', name: 'Sand' },
+    { hex: '#000000', name: 'Black' },
+    { hex: '#515252', name: 'Charcoal' },
+    { hex: '#898d90', name: 'Steel' },
+    { hex: '#d4d7d9', name: 'Silver' },
+    { hex: '#ffffff', name: 'White' },
+    { hex: '#7f001f', name: 'Ruby' },
+    { hex: '#ff6b6b', name: 'Salmon' },
+    { hex: '#ff8c42', name: 'Tangerine' },
+    { hex: '#f6c445', name: 'Gold' },
+    { hex: '#ffef7a', name: 'Butter' },
+    { hex: '#b5e48c', name: 'Pistachio' },
+    { hex: '#3a5a40', name: 'Dark Olive' },
+    { hex: '#2dc653', name: 'Jade' },
+    { hex: '#87c38f', name: 'Sage' },
+    { hex: '#3ddad7', name: 'Arctic Teal' },
+    { hex: '#48cae4', name: 'Cyan' },
+    { hex: '#a9def9', name: 'Glacier' },
+    { hex: '#1b263b', name: 'Midnight' },
+    { hex: '#3a86ff', name: 'Cobalt' },
+    { hex: '#5c7cfa', name: 'Denim' },
+    { hex: '#9ad1ff', name: 'Powder Blue' },
+    { hex: '#5a189a', name: 'Eggplant' },
+    { hex: '#9d4edd', name: 'Violet' },
+    { hex: '#c77dff', name: 'Mauve' },
+    { hex: '#ff4dc4', name: 'Fuchsia' },
+    { hex: '#ff7096', name: 'Rose' },
+    { hex: '#ffc09f', name: 'Peach' },
+    { hex: '#5a3d2b', name: 'Coffee' },
+    { hex: '#c68b3c', name: 'Ochre' },
+    { hex: '#e6b566', name: 'Caramel' },
+    { hex: '#1f1f1f', name: 'Obsidian' },
+    { hex: '#6b7280', name: 'Graphite' },
+    { hex: '#aeb8c4', name: 'Mist' },
+    { hex: '#e5e7eb', name: 'Pearl' },
+    { hex: '#faf3dd', name: 'Ivory' },
+    { hex: '#6b8e23', name: 'Olive' },
+    { hex: '#0077b6', name: 'Cerulean' },
 ];
-const colorPreview = document.getElementById('colorPreview');
+const paletteNameByHex = Object.fromEntries(palette.map((entry) => [entry.hex.toLowerCase(), entry.name]));
 
 function selectColor(hex) {
     state.selectedColor = hex;
-    colorPicker.value = hex;
-    colorPreview.style.background = hex;
+    if (colorActionSwatch) colorActionSwatch.style.background = hex;
+    if (colorActionSwatch) colorActionSwatch.title = paletteNameByHex[hex.toLowerCase()] || hex;
     document.querySelectorAll('#palette .swatch').forEach(s => {
         s.classList.toggle('selected', s.dataset.color === hex);
     });
 }
 
 // Pick a random initial color.
-selectColor(palette[Math.floor(Math.random() * palette.length)]);
+selectColor(palette[Math.floor(Math.random() * palette.length)].hex);
 
-for (const c of palette) {
+for (const entry of palette) {
     const sw = document.createElement('div');
     sw.className = 'swatch';
-    sw.dataset.color = c;
-    sw.style.background = c;
-    sw.title = c;
-    sw.addEventListener('click', () => selectColor(c));
+    sw.dataset.color = entry.hex;
+    sw.style.background = entry.hex;
+    sw.title = entry.name;
+    sw.setAttribute('aria-label', entry.name);
+    sw.addEventListener('click', () => selectColor(entry.hex));
     paletteEl.appendChild(sw);
 }
 
-resetView.addEventListener('click', () => {
-    cameraZoom = 1;
-    resizeCanvas();
-});
-
 document.getElementById('exportBtn').addEventListener('click', () => {
+    const EXPORT_SCALE = 8;
     const offscreen = document.createElement('canvas');
-    offscreen.width = gridSize;
-    offscreen.height = gridSize;
+    offscreen.width = gridSize * EXPORT_SCALE;
+    offscreen.height = gridSize * EXPORT_SCALE;
     const octx = offscreen.getContext('2d');
+    octx.imageSmoothingEnabled = false;
     octx.fillStyle = '#ffffff';
-    octx.fillRect(0, 0, gridSize, gridSize);
+    octx.fillRect(0, 0, offscreen.width, offscreen.height);
     for (const key in pixelData) {
         const [x, y] = key.split('_');
         const info = pixelData[key];
@@ -1470,7 +1608,7 @@ document.getElementById('exportBtn').addEventListener('click', () => {
         const color = raw && !raw.startsWith('#') ? '#' + raw : raw;
         if (!color) continue;
         octx.fillStyle = color;
-        octx.fillRect(Number(x), Number(y), 1, 1);
+        octx.fillRect(Number(x) * EXPORT_SCALE, Number(y) * EXPORT_SCALE, EXPORT_SCALE, EXPORT_SCALE);
     }
     const a = document.createElement('a');
     a.href = offscreen.toDataURL('image/png');
@@ -1487,13 +1625,19 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'g' || e.key === 'G') {
         toggleGrid();
     }
+    if (e.key === 'i' || e.key === 'I') {
+        setEyedropperMode(!eyedropperMode);
+    }
     if (e.key === '?' || (e.shiftKey && e.key === '/')) {
         debugLog('? key pressed, showing shortcuts modal');
         showModal(shortcutsModal, shortcutsBkg);
     }
     if (e.key === 'Escape') {
         setDrawerOpen(false);
+        setColorPanelOpen(false);
+        setProfileMenuOpen(false);
         hideCaptchaModal();
+        hideModal(authModal, authBkg);
         hideModal(shortcutsModal, shortcutsBkg);
         hideModal(profileModal, profileBkg);
     }
@@ -1503,10 +1647,9 @@ statsToggleBtn.addEventListener('click', () => setDrawerOpen(true));
 statsCloseBtn.addEventListener('click', () => setDrawerOpen(false));
 drawerBackdrop.addEventListener('click', () => setDrawerOpen(false));
 
-const loginBtn = document.getElementById('loginBtn');
 const logoutBtn = document.getElementById('logoutBtn');
 
-loginBtn.addEventListener('click', () => {
+function beginAuthAndConnect() {
     promptForAuth().then(() => {
         if (socketRef && socketRef.readyState === WebSocket.OPEN) {
             sendWS({
@@ -1519,7 +1662,42 @@ loginBtn.addEventListener('click', () => {
             socketRef = connectWebSocket();
         }
     });
+}
+
+if (profileMenuBtn) {
+    profileMenuBtn.addEventListener('click', () => {
+        if (!state.authenticated) {
+            beginAuthAndConnect();
+            return;
+        }
+        setProfileMenuOpen(!profileDropdown.classList.contains('open'));
+    });
+}
+
+document.addEventListener('click', (e) => {
+    if (!profileMenuWrap || !profileDropdown || !profileDropdown.classList.contains('open')) return;
+    if (!profileMenuWrap.contains(e.target)) {
+        setProfileMenuOpen(false);
+    }
 });
+
+if (colorActionBtn) {
+    colorActionBtn.addEventListener('click', () => {
+        if (!state.authenticated) {
+            beginAuthAndConnect();
+            return;
+        }
+
+        setColorPanelOpen(!colorPanel.classList.contains('open'));
+    });
+}
+
+if (authCloseBtn) {
+    authCloseBtn.addEventListener('click', () => hideModal(authModal, authBkg));
+}
+if (authBkg) {
+    authBkg.addEventListener('click', () => hideModal(authModal, authBkg));
+}
 
 logoutBtn.addEventListener('click', () => {
     if (!confirm('Sign out?')) return;
@@ -1536,6 +1714,8 @@ logoutBtn.addEventListener('click', () => {
     localStorage.removeItem(STORAGE_EMAIL);
     localStorage.removeItem(STORAGE_IDENTITY_TOKEN);
     localStorage.removeItem(STORAGE_COOLDOWN);
+    setColorPanelOpen(false);
+    setProfileMenuOpen(false);
     updateAuthUI();
 
     if (socketRef) {
@@ -1549,31 +1729,37 @@ logoutBtn.addEventListener('click', () => {
         socketRef = connectWebSocket();
     }
 });
-nicknameDisplay.addEventListener('click', () => {
-    if (state.authenticated) {
-        changeNickname();
-    }
-});
+if (nicknameDisplay) {
+    nicknameDisplay.addEventListener('click', () => {
+        if (state.authenticated) {
+            changeNickname();
+        }
+    });
+}
 
-gridToggle.addEventListener('change', toggleGrid);
-themeToggle.addEventListener('click', toggleTheme);
-captchaOkBtn.addEventListener('click', hideCaptchaModal);
-captchaBkg.addEventListener('click', hideCaptchaModal);
-shortcutsCloseBtn.addEventListener('click', () => hideModal(shortcutsModal, shortcutsBkg));
-shortcutsBkg.addEventListener('click', () => hideModal(shortcutsModal, shortcutsBkg));
-profileCloseBtn.addEventListener('click', () => hideModal(profileModal, profileBkg));
-profileBkg.addEventListener('click', () => hideModal(profileModal, profileBkg));
+if (gridToggle) gridToggle.addEventListener('change', toggleGrid);
+if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
+if (captchaOkBtn) captchaOkBtn.addEventListener('click', hideCaptchaModal);
+if (captchaBkg) captchaBkg.addEventListener('click', hideCaptchaModal);
+if (shortcutsCloseBtn) shortcutsCloseBtn.addEventListener('click', () => hideModal(shortcutsModal, shortcutsBkg));
+if (shortcutsBkg) shortcutsBkg.addEventListener('click', () => hideModal(shortcutsModal, shortcutsBkg));
+if (profileCloseBtn) profileCloseBtn.addEventListener('click', () => hideModal(profileModal, profileBkg));
+if (profileBkg) profileBkg.addEventListener('click', () => hideModal(profileModal, profileBkg));
 
-placePixelBtn.addEventListener('click', placePixelAtHover);
-undoPixelBtn.addEventListener('click', requestUndoPixel);
+if (placePixelBtn) placePixelBtn.addEventListener('click', placePixelAtHover);
+if (undoPixelBtn) undoPixelBtn.addEventListener('click', requestUndoPixel);
+if (redoPixelBtn) redoPixelBtn.addEventListener('click', requestRedoPixel);
+if (eyedropperBtn) eyedropperBtn.addEventListener('click', () => setEyedropperMode(!eyedropperMode));
 
-placeCoordBtn.addEventListener('click', () => {
-    const x = Number(coordX.value);
-    const y = Number(coordY.value);
-    placePixelAtCoordinates(x, y);
-    coordX.value = '';
-    coordY.value = '';
-});
+if (placeCoordBtn) {
+    placeCoordBtn.addEventListener('click', () => {
+        const x = Number(coordX.value);
+        const y = Number(coordY.value);
+        placePixelAtCoordinates(x, y);
+        coordX.value = '';
+        coordY.value = '';
+    });
+}
 
 let pointerDown = false;
 let dragModePan = false;
@@ -1589,16 +1775,19 @@ function updateHover(e) {
     const prevKey = hoverCell ? `${hoverCell.x}_${hoverCell.y}` : '';
     hoverCell = cell;
     if (cell) {
-        hoverCoordsEl.textContent = `${cell.x}, ${cell.y}`;
+        if (hoverCoordsEl) hoverCoordsEl.textContent = `${cell.x}, ${cell.y}`;
         const pixelKey = `${cell.x}_${cell.y}`;
         const pixelInfo = pixelData[pixelKey];
         hoverUsername = pixelInfo ? (typeof pixelInfo === 'string' ? '-' : pixelInfo.username || '-') : '-';
         
-        if (hoverUsername && hoverUsername !== '-') {
-            hoverUsernameEl.textContent = hoverUsername;
-            hoverUsernameRow.style.display = 'block';
-        } else {
-            hoverUsernameRow.style.display = 'none';
+        if (hoverUsernameRow && hoverUsernameEl) {
+            if (hoverUsername && hoverUsername !== '-') {
+                hoverUsernameEl.textContent = hoverUsername;
+                hoverUsernameRow.style.display = 'block';
+            } else {
+                hoverUsernameRow.style.display = 'none';
+            }
+            updateHudVisibility();
         }
 
         updateHoverHistoryText(cell);
@@ -1610,12 +1799,16 @@ function updateHover(e) {
             });
         }
     } else {
-        hoverCoordsEl.textContent = '-';
+        if (hoverCoordsEl) hoverCoordsEl.textContent = '-';
         hoverUsername = null;
-        hoverUsernameRow.style.display = 'none';
-        hoverHistoryRow.style.display = 'none';
+        if (hoverUsernameRow) hoverUsernameRow.style.display = 'none';
+        if (hoverHistoryRow) hoverHistoryRow.style.display = 'none';
+        updateHudVisibility();
     }
-    cursorCoordsEl.textContent = `${Math.round((e.clientX - canvas.getBoundingClientRect().left) * dpr)}, ${Math.round((e.clientY - canvas.getBoundingClientRect().top) * dpr)}`;
+    if (cursorCoordsEl) {
+        cursorCoordsEl.textContent = `${Math.round((e.clientX - canvas.getBoundingClientRect().left) * dpr)}, ${Math.round((e.clientY - canvas.getBoundingClientRect().top) * dpr)}`;
+    }
+    updateCanvasTopStatus();
     queueDraw();
 }
 
@@ -1695,6 +1888,7 @@ let socketRef = null;
     await ensureIdentity();
     updateAuthUI();
     applyTheme();
+    updateHudVisibility();
     loadCooldownFromStorage();
     updateTimerUI();
     updateZoomDisplay();

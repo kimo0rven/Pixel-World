@@ -5,7 +5,6 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/subtle"
 	"embed"
 	"encoding/hex"
 	"encoding/json"
@@ -41,13 +40,10 @@ type PixelMessage struct {
 
 type ClientMessage struct {
 	Type            string           `json:"type"`
-	UserID          string           `json:"userId,omitempty"`
 	Nickname        string           `json:"nickname,omitempty"`
 	Pixel           *PixelMessage    `json:"pixel,omitempty"`
 	Chunks          []ChunkCoord     `json:"chunks,omitempty"`
 	Viewport        *ViewportPayload `json:"viewport,omitempty"`
-	ClientVersion   string           `json:"clientVersion,omitempty"`
-	IdentityToken   string           `json:"identityToken,omitempty"`
 	FirebaseIDToken string           `json:"firebaseIdToken,omitempty"`
 }
 
@@ -82,7 +78,6 @@ type ClientSession struct {
 	Nickname         string
 	WindowStart      time.Time
 	WindowMsgCount   int
-	LastPlacementAt  time.Time
 	LastChunkAt      time.Time
 	CooldownUntilMs  int64
 	SubscribedChunks map[string]struct{} // Format: "cx_cy"
@@ -98,6 +93,10 @@ type UserStats struct {
 	UserID                     string           `json:"userId"`
 	Nickname                   string           `json:"nickname"`
 	TotalPlacements            int64            `json:"totalPlacements"`
+	Experience                 int64            `json:"experience,omitempty"`
+	Level                      int              `json:"level,omitempty"`
+	LevelExpCurrent            int64            `json:"levelExpCurrent,omitempty"`
+	LevelExpRequired           int64            `json:"levelExpRequired,omitempty"`
 	PlacementsToday            int64            `json:"placementsToday"`
 	LastPlacementAt            int64            `json:"lastPlacementAt"`
 	LastPlacementDay           string           `json:"lastPlacementDay,omitempty"`
@@ -186,7 +185,7 @@ type SuspiciousActivity struct {
 
 var nicknameRegex = regexp.MustCompile(`^[a-zA-Z0-9_ ]{3,20}$`)
 
-// Whitelist of allowed colors (hex format without #) — r/Place 2022 32-color palette
+// Whitelist of allowed colors (hex format without #) — 64-color project palette
 var allowedColors = map[string]bool{
 	"6d001a": true, // Darkest Red
 	"be0039": true, // Dark Red
@@ -220,6 +219,38 @@ var allowedColors = map[string]bool{
 	"898d90": true, // Gray
 	"d4d7d9": true, // Light Gray
 	"ffffff": true, // White
+	"7f001f": true, // Ruby
+	"ff6b6b": true, // Salmon
+	"ff8c42": true, // Tangerine
+	"f6c445": true, // Gold
+	"ffef7a": true, // Butter
+	"b5e48c": true, // Pistachio
+	"3a5a40": true, // Dark Olive
+	"2dc653": true, // Jade
+	"87c38f": true, // Sage
+	"3ddad7": true, // Arctic Teal
+	"48cae4": true, // Cyan
+	"a9def9": true, // Glacier
+	"1b263b": true, // Midnight
+	"3a86ff": true, // Cobalt
+	"5c7cfa": true, // Denim
+	"9ad1ff": true, // Powder Blue
+	"5a189a": true, // Eggplant
+	"9d4edd": true, // Violet
+	"c77dff": true, // Mauve
+	"ff4dc4": true, // Fuchsia
+	"ff7096": true, // Rose
+	"ffc09f": true, // Peach
+	"5a3d2b": true, // Coffee
+	"c68b3c": true, // Ochre
+	"e6b566": true, // Caramel
+	"1f1f1f": true, // Obsidian
+	"6b7280": true, // Graphite
+	"aeb8c4": true, // Mist
+	"e5e7eb": true, // Pearl
+	"faf3dd": true, // Ivory
+	"6b8e23": true, // Olive
+	"0077b6": true, // Cerulean
 }
 
 // IP-based rate limiting: track requests per IP
@@ -1008,6 +1039,11 @@ func buildStatsSnapshot(uid string) *UserStats {
 		return nil
 	}
 	recalculateRetentionMetrics(s, time.Now().UnixMilli())
+	progression := ComputeProgressionFromPlacements(s.TotalPlacements)
+	s.Level = progression.Level
+	s.Experience = progression.TotalExp
+	s.LevelExpCurrent = progression.LevelExpCurrent
+	s.LevelExpRequired = progression.LevelExpRequired
 
 	copyStats := *s
 	if s.ColorCounts != nil {
@@ -1083,6 +1119,8 @@ func handleAppConfig(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"ok":                true,
 		"firebaseWebApiKey": appConfig.FirebaseWebAPIKey,
+		"firebaseProjectId": appConfig.FirebaseProjectID,
+		"firebaseAuthDomain": appConfig.FirebaseAuthDomain,
 	})
 }
 
@@ -1577,16 +1615,6 @@ func issueIdentityToken(userID string) string {
 	return hex.EncodeToString(mac.Sum(nil))
 }
 
-// verifyIdentityToken checks that token == HMAC-SHA256(userID, IdentitySecret)
-// using constant-time comparison to prevent timing attacks.
-func verifyIdentityToken(userID, token string) bool {
-	if token == "" {
-		return false
-	}
-	expected := issueIdentityToken(userID)
-	return subtle.ConstantTimeCompare([]byte(expected), []byte(token)) == 1
-}
-
 func antiSpamExceeded(session *ClientSession, now time.Time) bool {
 	if session.WindowStart.IsZero() || now.Sub(session.WindowStart) > appConfig.AntiSpamWindow {
 		session.WindowStart = now
@@ -1660,7 +1688,6 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		Nickname:         "Guest",
 		WindowStart:      time.Now(),
 		WindowMsgCount:   0,
-		LastPlacementAt:  time.Time{},
 		SubscribedChunks: make(map[string]struct{}),
 		ClientIP:         clientIP,
 	}
@@ -1669,7 +1696,8 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	clients[ws] = session
 	clientsMutex.Unlock()
 
-	stats := getOrCreateStats(session.UserID, session.Nickname)
+	_ = getOrCreateStats(session.UserID, session.Nickname)
+	statsSnapshot := buildStatsSnapshot(session.UserID)
 	_ = writeServerMessage(ws, ServerMessage{
 		Type:            "welcome",
 		UserID:          session.UserID,
@@ -1680,7 +1708,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		CooldownBypass:  isCooldownBypassed(session.UserID),
 		GridSize:        appConfig.GridSize,
 		ChunkSize:       appConfig.ChunkSize,
-		Stats:           stats,
+		Stats:           statsSnapshot,
 		Leaderboard:     buildLeaderboard(5),
 		NowMs:           time.Now().UnixMilli(),
 		Message:         "Connected to Pixel World server.",
@@ -1800,7 +1828,6 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 				})
 				continue
 			}
-			session.LastPlacementAt = now
 			px := *msg.Pixel
 			px.Username = session.Nickname
 			px.OwnerUserID = session.UserID

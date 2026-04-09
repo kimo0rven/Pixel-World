@@ -24,13 +24,15 @@ type AppConfig struct {
 	AdminAPIKey            string
 	IdentitySecret         string
 	FirebaseWebAPIKey      string
+	FirebaseProjectID      string
+	FirebaseAuthDomain     string
 }
 
 func loadAppConfig() AppConfig {
 	cfg := AppConfig{
 		GridSize:               readIntEnv("GRID_SIZE", 250),
 		ChunkSize:              readIntEnv("CHUNK_SIZE", 25),
-		CooldownDuration:       readDurationEnv("COOLDOWN_DURATION", 5*time.Minute),
+		CooldownDuration:       readDurationEnv("COOLDOWN_DURATION", 30*time.Second),
 		AntiSpamWindow:         readDurationEnv("ANTI_SPAM_WINDOW", 2*time.Second),
 		MaxMessagesPerWindow:   readIntEnv("MAX_MESSAGES_PER_WINDOW", 50),
 		MaxChunkRequestsPerSec: readIntEnv("MAX_CHUNK_REQUESTS_PER_SEC", 4),
@@ -42,8 +44,21 @@ func loadAppConfig() AppConfig {
 		AdminAPIKey:            strings.TrimSpace(os.Getenv("ADMIN_API_KEY")),
 		IdentitySecret:         strings.TrimSpace(os.Getenv("IDENTITY_SECRET")),
 		FirebaseWebAPIKey:      strings.TrimSpace(os.Getenv("FIREBASE_WEB_API_KEY")),
+		FirebaseProjectID:      strings.TrimSpace(os.Getenv("FIREBASE_PROJECT_ID")),
+		FirebaseAuthDomain:     strings.TrimSpace(os.Getenv("FIREBASE_AUTH_DOMAIN")),
 		CooldownBypassUIDs:     make(map[string]struct{}),
 		AllowedOrigins:         make(map[string]struct{}),
+	}
+
+	if cfg.FirebaseAuthDomain == "" {
+		projectID := cfg.FirebaseProjectID
+		if projectID == "" {
+			projectID = deriveProjectIDFromDBURL(strings.TrimSpace(os.Getenv("FIREBASE_DATABASE_URL")))
+		}
+		if projectID != "" {
+			cfg.FirebaseProjectID = projectID
+			cfg.FirebaseAuthDomain = projectID + ".firebaseapp.com"
+		}
 	}
 
 	// Optional env override/addition: comma-separated list of UIDs that bypass cooldown.
@@ -146,5 +161,27 @@ func readBoolEnv(name string, fallback bool) bool {
 	default:
 		return fallback
 	}
+}
+
+func deriveProjectIDFromDBURL(dbURL string) string {
+	if dbURL == "" {
+		return ""
+	}
+	trimmed := strings.TrimPrefix(strings.TrimPrefix(dbURL, "https://"), "http://")
+	host := strings.SplitN(trimmed, "/", 2)[0]
+	if host == "" {
+		return ""
+	}
+	prefix := strings.SplitN(host, ".", 2)[0]
+	if prefix == "" {
+		return ""
+	}
+	// Realtime DB host commonly looks like: <project-id>-default-rtdb.<region>.firebasedatabase.app
+	const marker = "-default-rtdb"
+	if i := strings.Index(prefix, marker); i > 0 {
+		return prefix[:i]
+	}
+	// Fallback for legacy hosts where project id is the full host prefix.
+	return prefix
 }
 

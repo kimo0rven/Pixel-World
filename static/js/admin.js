@@ -37,6 +37,22 @@ const refreshSuspiciousBtn = document.getElementById('refreshSuspicious');
 const suspiciousListEl = document.getElementById('suspiciousList');
 const resultBox = document.getElementById('resultBox');
 
+const STORAGE_ADMIN_KEY = 'pixel_world_admin_key';
+
+function setBusy(button, busy, textWhileBusy = 'Working...') {
+    if (!button) return;
+    if (busy) {
+        button.dataset.originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = textWhileBusy;
+    } else {
+        button.disabled = false;
+        if (button.dataset.originalText) {
+            button.textContent = button.dataset.originalText;
+        }
+    }
+}
+
 function toMillis(value) {
     if (!value) return null;
     const ms = new Date(value).getTime();
@@ -77,7 +93,35 @@ function showResult(payload) {
     resultBox.textContent = JSON.stringify(payload, null, 2);
 }
 
+function bindCheckboxDisablesInput(checkbox, input) {
+    if (!checkbox || !input) return;
+    const syncState = () => {
+        input.disabled = checkbox.checked;
+        if (checkbox.checked) input.value = '';
+    };
+    checkbox.addEventListener('change', syncState);
+    syncState();
+}
+
+if (adminKeyInput) {
+    const savedKey = sessionStorage.getItem(STORAGE_ADMIN_KEY) || '';
+    if (savedKey) adminKeyInput.value = savedKey;
+    adminKeyInput.addEventListener('input', () => {
+        const key = (adminKeyInput.value || '').trim();
+        if (key) {
+            sessionStorage.setItem(STORAGE_ADMIN_KEY, key);
+        } else {
+            sessionStorage.removeItem(STORAGE_ADMIN_KEY);
+        }
+    });
+}
+
+bindCheckboxDisablesInput(clearCooldownInput, cooldownUntilInput);
+bindCheckboxDisablesInput(clearMuteInput, muteUntilInput);
+bindCheckboxDisablesInput(clearFreezeInput, freezeUntilInput);
+
 applyCooldownBtn.addEventListener('click', async () => {
+    setBusy(applyCooldownBtn, true, 'Applying...');
     try {
         const userId = getUserId();
         if (!userId) throw new Error('User ID is required for cooldown changes');
@@ -94,10 +138,13 @@ applyCooldownBtn.addEventListener('click', async () => {
         showResult(payload);
     } catch (err) {
         showResult({ ok: false, error: String(err.message || err) });
+    } finally {
+        setBusy(applyCooldownBtn, false);
     }
 });
 
 applyModerationBtn.addEventListener('click', async () => {
+    setBusy(applyModerationBtn, true, 'Applying...');
     try {
         const userId = getUserId();
         if (!userId) throw new Error('User ID is required for moderation changes');
@@ -117,27 +164,43 @@ applyModerationBtn.addEventListener('click', async () => {
         showResult(payload);
     } catch (err) {
         showResult({ ok: false, error: String(err.message || err) });
+    } finally {
+        setBusy(applyModerationBtn, false);
     }
 });
 
 runRollbackBtn.addEventListener('click', async () => {
+    setBusy(runRollbackBtn, true, 'Running...');
     try {
         const startMs = toMillis(rollbackStartInput.value);
         const endMs = toMillis(rollbackEndInput.value);
         if (startMs == null || endMs == null) {
             throw new Error('Rollback start/end are required');
         }
+        if (endMs < startMs) {
+            throw new Error('Rollback end must be after start');
+        }
+
+        const target = (rollbackUserIdInput.value || '').trim();
+        const targetLabel = target ? `user '${target}'` : 'ALL users';
+        const ok = confirm(`Run rollback for ${targetLabel} between selected times? This permanently removes pixels.`);
+        if (!ok) {
+            showResult({ ok: false, error: 'Rollback cancelled by user' });
+            return;
+        }
 
         const body = {
             startMs,
             endMs,
-            userId: (rollbackUserIdInput.value || '').trim(),
+            userId: target,
         };
 
         const payload = await callAdmin('/admin/rollback-window', 'POST', body);
         showResult(payload);
     } catch (err) {
         showResult({ ok: false, error: String(err.message || err) });
+    } finally {
+        setBusy(runRollbackBtn, false);
     }
 });
 
@@ -159,11 +222,14 @@ function renderSuspicious(items) {
 }
 
 refreshSuspiciousBtn.addEventListener('click', async () => {
+    setBusy(refreshSuspiciousBtn, true, 'Refreshing...');
     try {
         const payload = await callAdmin('/admin/suspicious', 'GET');
         renderSuspicious(payload.items || []);
         showResult(payload);
     } catch (err) {
         showResult({ ok: false, error: String(err.message || err) });
+    } finally {
+        setBusy(refreshSuspiciousBtn, false);
     }
 });
